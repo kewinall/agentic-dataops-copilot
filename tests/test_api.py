@@ -8,7 +8,14 @@ client = TestClient(app)
 def test_health() -> None:
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "version": "0.4.0"}
+    assert response.json() == {"status": "ok", "version": "0.5.0"}
+
+
+def test_dashboard_is_available() -> None:
+    response = client.get("/")
+    assert response.status_code == 200
+    assert "Agentic DataOps Copilot" in response.text
+    assert "Governed Action Plan" in response.text
 
 
 def test_provider_status() -> None:
@@ -61,6 +68,18 @@ def test_image_pull_incident() -> None:
     assert body["recommended_actions"]
 
 
+def test_multi_agent_api() -> None:
+    response = client.post(
+        "/api/v1/copilot/collaborate",
+        json={"message": "Airflow DAG failed and task timeout"},
+    )
+    body = response.json()
+
+    assert response.status_code == 200
+    assert len(body["contributions"]) == 5
+    assert body["result"]["severity"] in {"medium", "high", "critical"}
+
+
 def test_unsafe_delete_is_critical() -> None:
     response = client.post(
         "/api/v1/copilot/analyze",
@@ -74,3 +93,42 @@ def test_unsafe_delete_is_critical() -> None:
     assert any(item["document_id"] == "sql-change-safety" for item in body["citations"])
     sql_trace = next(trace for trace in body["tool_traces"] if trace["tool"] == "sql_safety")
     assert sql_trace["details"]["safe_by_rules"] is False
+
+
+def test_governed_action_api_and_audit() -> None:
+    response = client.post(
+        "/api/v1/actions/plan",
+        headers={"X-Copilot-User": "api-operator", "X-Copilot-Role": "operator"},
+        json={
+            "action": "airflow.retry_task",
+            "target": "dag/task",
+            "environment": "prod",
+            "dry_run": False,
+            "reason": "failed task",
+        },
+    )
+    plan = response.json()
+
+    assert response.status_code == 200
+    assert plan["status"] == "pending_approval"
+
+    approval = client.post(
+        f"/api/v1/actions/{plan['action_id']}/approve",
+        headers={"X-Copilot-User": "api-approver", "X-Copilot-Role": "approver"},
+        json={"reason": "approved"},
+    )
+    assert approval.status_code == 200
+    assert approval.json()["status"] == "approved"
+
+    audit = client.get("/api/v1/audit")
+    assert audit.status_code == 200
+    assert audit.json()["chain_valid"] is True
+    assert len(audit.json()["events"]) >= 2
+
+
+def test_governance_status_is_safe_by_default() -> None:
+    body = client.get("/api/v1/governance/status").json()
+
+    assert body["safe_by_default"] is True
+    assert body["configured_executors"] == []
+    assert body["self_approval"] is False

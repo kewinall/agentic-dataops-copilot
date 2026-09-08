@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Agentic DataOps Copilot v0.5</title>
+  <style>
+    :root { color-scheme: dark; --bg:#09111f; --panel:#101b2d; --line:#26354e; --text:#e8eef8; --muted:#93a4bd; --ok:#69d29a; --warn:#f6c768; --bad:#ff7b86; --accent:#72a7ff; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif; background:linear-gradient(135deg,#07101d,#101a2b); color:var(--text); }
+    header { padding:28px max(24px,5vw) 18px; border-bottom:1px solid var(--line); background:rgba(9,17,31,.92); position:sticky; top:0; z-index:2; backdrop-filter:blur(12px); }
+    h1 { margin:0; font-size:24px; } h2 { margin:0 0 14px; font-size:17px; }
+    .sub { color:var(--muted); margin-top:7px; font-size:14px; }
+    main { max-width:1500px; margin:auto; padding:24px; display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+    .card { background:rgba(16,27,45,.94); border:1px solid var(--line); border-radius:14px; padding:18px; box-shadow:0 18px 50px rgba(0,0,0,.18); }
+    .wide { grid-column:1 / -1; }
+    label { display:block; color:var(--muted); font-size:12px; margin:10px 0 5px; }
+    input,select,textarea,button { width:100%; border-radius:9px; border:1px solid var(--line); background:#0b1525; color:var(--text); padding:10px 11px; }
+    textarea { min-height:100px; resize:vertical; }
+    button { background:#18345e; border-color:#31598f; cursor:pointer; font-weight:650; }
+    button:hover { filter:brightness(1.12); }
+    button.secondary { background:#152236; }
+    button.danger { background:#51232a; border-color:#81404a; }
+    .row { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }
+    .row3 { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+    .pill { display:inline-block; padding:4px 8px; border-radius:999px; font-size:11px; background:#182740; color:#bcd0ee; margin:2px; }
+    .ok { color:var(--ok); }.warn { color:var(--warn); }.bad { color:var(--bad); }
+    pre { white-space:pre-wrap; overflow-wrap:anywhere; background:#091321; padding:12px; border-radius:10px; border:1px solid var(--line); max-height:420px; overflow:auto; }
+    table { width:100%; border-collapse:collapse; font-size:12px; }
+    th,td { padding:9px; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; }
+    th { color:#b8c9df; position:sticky; top:0; background:var(--panel); }
+    .scroll { max-height:390px; overflow:auto; border:1px solid var(--line); border-radius:10px; }
+    .actions { display:flex; gap:6px; min-width:210px; }.actions button { padding:6px; font-size:11px; }
+    .metric { font-size:20px; font-weight:750; }.metric small { display:block; font-size:11px; color:var(--muted); font-weight:500; }
+    @media (max-width:900px){ main{grid-template-columns:1fr}.wide{grid-column:auto}.row,.row3{grid-template-columns:1fr} }
+  </style>
+</head>
+<body>
+<header>
+  <h1>Agentic DataOps Copilot <span class="pill">v0.5</span></h1>
+  <div class="sub">Multi-Agent · Policy · Human Approval · Audit · MCP · Hybrid RAG</div>
+</header>
+<main>
+  <section class="card wide">
+    <div class="row3">
+      <div><div class="metric" id="safe">...</div><small>Safe by default</small></div>
+      <div><div class="metric" id="chain">...</div><small>Audit chain</small></div>
+      <div><div class="metric" id="executors">...</div><small>Configured mutation executors</small></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Identity / 身分</h2>
+    <div class="row">
+      <div><label>User</label><input id="user" value="operator-a"></div>
+      <div><label>Role</label><select id="role"><option>viewer</option><option selected>operator</option><option>approver</option><option>admin</option></select></div>
+    </div>
+    <div class="sub">Demo identity is propagated through request headers. Production deployment should place the API behind trusted authentication.</div>
+  </section>
+
+  <section class="card">
+    <h2>Multi-Agent Collaboration</h2>
+    <label>Incident / Question</label>
+    <textarea id="message">AKS pod 出現 ImagePullBackOff，請分析可能原因與處理順序</textarea>
+    <button onclick="analyze()">Analyze with specialists</button>
+    <pre id="analysis">尚未分析</pre>
+  </section>
+
+  <section class="card">
+    <h2>Governed Action Plan</h2>
+    <label>Action</label><select id="action"></select>
+    <div class="row">
+      <div><label>Target</label><input id="target" value="deployment/api"></div>
+      <div><label>Environment</label><select id="env"><option>dev</option><option>sit</option><option>uat</option><option>prod</option></select></div>
+    </div>
+    <label>Reason</label><input id="reason" value="Incident remediation proposal">
+    <label><input id="dry" type="checkbox" checked style="width:auto"> Dry-run only</label>
+    <button onclick="plan()">Create governed plan</button>
+    <pre id="planResult">尚未建立 plan</pre>
+  </section>
+
+  <section class="card">
+    <h2>Policy Model</h2>
+    <div class="sub">
+      viewer → deny mutation plan<br>
+      operator/admin → may request<br>
+      mutation → separate approver required<br>
+      self approval → denied<br>
+      critical → default deny<br>
+      no executor configured → execution fails safely
+    </div>
+  </section>
+
+  <section class="card wide">
+    <div class="row">
+      <h2>Action Queue</h2><button class="secondary" onclick="refreshActions()">Refresh actions</button>
+    </div>
+    <div class="scroll"><table><thead><tr><th>ID</th><th>Action</th><th>Target</th><th>Env</th><th>Requester</th><th>Policy / Status</th><th>Control</th></tr></thead><tbody id="actionRows"></tbody></table></div>
+  </section>
+
+  <section class="card wide">
+    <div class="row">
+      <h2>Tamper-evident Audit Trail</h2><button class="secondary" onclick="refreshAudit()">Refresh audit</button>
+    </div>
+    <div class="scroll"><table><thead><tr><th>Time</th><th>Event</th><th>Actor</th><th>Action ID</th><th>Hash</th></tr></thead><tbody id="auditRows"></tbody></table></div>
+  </section>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const esc = value => String(value ?? "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));
+function headers(){ return {"Content-Type":"application/json","X-Copilot-User":$("user").value,"X-Copilot-Role":$("role").value}; }
+async function jsonFetch(url, options={}) {
+  const response = await fetch(url, options);
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.detail || JSON.stringify(body));
+  return body;
+}
+async function init(){
+  const [status,catalog] = await Promise.all([jsonFetch("/api/v1/governance/status"),jsonFetch("/api/v1/actions/catalog")]);
+  $("safe").innerHTML = status.safe_by_default ? '<span class="ok">ON</span>' : '<span class="warn">CUSTOM</span>';
+  $("chain").innerHTML = status.audit_chain_valid ? '<span class="ok">VALID</span>' : '<span class="bad">INVALID</span>';
+  $("executors").textContent = status.configured_executors.length;
+  $("action").innerHTML = catalog.actions.map(x => '<option value="'+esc(x.name)+'">'+esc(x.name)+' ('+esc(x.risk)+')</option>').join("");
+  await Promise.all([refreshActions(),refreshAudit()]);
+}
+async function analyze(){
+  try {
+    const body=await jsonFetch("/api/v1/copilot/collaborate",{method:"POST",headers:headers(),body:JSON.stringify({message:$("message").value,context:{environment:$("env").value}})});
+    $("analysis").textContent=JSON.stringify(body,null,2);
+  } catch(e){ $("analysis").textContent=e.message; }
+}
+async function plan(){
+  try {
+    const body=await jsonFetch("/api/v1/actions/plan",{method:"POST",headers:headers(),body:JSON.stringify({action:$("action").value,target:$("target").value,environment:$("env").value,reason:$("reason").value,dry_run:$("dry").checked})});
+    $("planResult").textContent=JSON.stringify(body,null,2); await Promise.all([refreshActions(),refreshAudit()]);
+  } catch(e){ $("planResult").textContent=e.message; }
+}
+async function decision(id,kind){
+  try {
+    await jsonFetch("/api/v1/actions/"+id+"/"+kind,{method:"POST",headers:headers(),body:JSON.stringify({reason:"UI decision"})});
+    await Promise.all([refreshActions(),refreshAudit()]);
+  } catch(e){ alert(e.message); }
+}
+async function executeAction(id){
+  try {
+    const body=await jsonFetch("/api/v1/actions/"+id+"/execute",{method:"POST",headers:headers()});
+    $("planResult").textContent=JSON.stringify(body,null,2); await Promise.all([refreshActions(),refreshAudit()]);
+  } catch(e){ alert(e.message); }
+}
+async function refreshActions(){
+  const rows=await jsonFetch("/api/v1/actions");
+  $("actionRows").innerHTML=rows.map(x => '<tr><td>'+esc(x.action_id.slice(0,8))+'</td><td>'+esc(x.action)+'</td><td>'+esc(x.target)+'</td><td>'+esc(x.environment)+'</td><td>'+esc(x.requested_by)+' / '+esc(x.requested_role)+'</td><td>'+esc(x.policy.effect)+'<br><span class="pill">'+esc(x.status)+'</span></td><td><div class="actions"><button onclick="decision(\''+esc(x.action_id)+'\',\'approve\')">Approve</button><button class="danger" onclick="decision(\''+esc(x.action_id)+'\',\'reject\')">Reject</button><button class="secondary" onclick="executeAction(\''+esc(x.action_id)+'\')">Execute</button></div></td></tr>').join("");
+}
+async function refreshAudit(){
+  const body=await jsonFetch("/api/v1/audit?limit=100");
+  $("chain").innerHTML=body.chain_valid ? '<span class="ok">VALID</span>' : '<span class="bad">INVALID</span>';
+  $("auditRows").innerHTML=body.events.slice().reverse().map(x => '<tr><td>'+esc(x.created_at)+'</td><td>'+esc(x.event_type)+'</td><td>'+esc(x.actor)+' / '+esc(x.role)+'</td><td>'+esc((x.action_id||"").slice(0,8))+'</td><td>'+esc(x.event_hash.slice(0,12))+'</td></tr>').join("");
+}
+init().catch(e => console.error(e));
+</script>
+</body>
+</html>

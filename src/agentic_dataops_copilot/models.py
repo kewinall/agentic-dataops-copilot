@@ -43,6 +43,21 @@ class AnalyzeResponse(BaseModel):
     provider: str | None = None
 
 
+class AgentContribution(BaseModel):
+    agent: str
+    responsibility: str
+    matched: bool
+    severity: Severity
+    summary: str
+    actions: list[str] = Field(default_factory=list)
+
+
+class CollaborationResponse(BaseModel):
+    request_id: str
+    contributions: list[AgentContribution]
+    result: AnalyzeResponse
+
+
 class KnowledgeSearchRequest(BaseModel):
     query: str = Field(min_length=1, max_length=10_000)
     top_k: int = Field(default=3, ge=1, le=10)
