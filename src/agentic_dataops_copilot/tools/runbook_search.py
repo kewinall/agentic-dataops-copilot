@@ -1,54 +1,54 @@
 import re
 
-from agentic_dataops_copilot.knowledge.runbooks import RUNBOOKS
+from agentic_dataops_copilot.knowledge import get_default_index, hit_to_citation
 
 from .base import ToolResult
+
+BULLET = re.compile(r"^[-*]\s+(.+)$")
 
 
 class RunbookSearchTool:
     name = "runbook_search"
 
+    def __init__(self) -> None:
+        self.index = get_default_index()
+
     def run(self, message: str) -> ToolResult:
-        normalized = message.lower()
-        tokens = {token for token in re.findall(r"[a-z0-9_-]+", normalized) if len(token) >= 3}
-        ranked: list[tuple[int, dict[str, object]]] = []
-
-        for runbook in RUNBOOKS:
-            score = 0
-            for keyword in runbook["keywords"]:
-                keyword_text = str(keyword).lower()
-                if keyword_text in normalized:
-                    score += 3
-                elif keyword_text in tokens:
-                    score += 1
-            title_tokens = set(str(runbook["title"]).lower().split())
-            score += len(tokens & title_tokens)
-            if score > 0:
-                ranked.append((score, runbook))
-
-        ranked.sort(key=lambda item: item[0], reverse=True)
-        top = ranked[:3]
-        if not top:
+        hits = self.index.search(message, top_k=3)
+        if not hits:
             return ToolResult(
                 tool=self.name,
                 matched=False,
-                summary="沒有找到高相關性的 runbook。",
+                summary="RAG knowledge base 沒有找到高相關性的 runbook。",
+                details={"citations": []},
             )
 
-        recommendations = []
-        actions: list[str] = []
-        for score, runbook in top:
-            recommendations.append(
-                {"id": runbook["id"], "title": runbook["title"], "score": score}
-            )
-            if not actions:
-                actions.extend(str(step) for step in runbook["steps"])
+        citations = [hit_to_citation(hit) for hit in hits]
+        actions = self._extract_actions(hits[0].chunk.content)
 
         return ToolResult(
             tool=self.name,
             matched=True,
             severity="info",
-            summary=f"找到 {len(top)} 份相關 runbook，最高相關：{top[0][1]['title']}。",
+            summary=(
+                f"Hybrid RAG 找到 {len(hits)} 個相關知識片段，"
+                f"最高相關：{hits[0].chunk.title}。"
+            ),
             actions=actions,
-            details={"recommendations": recommendations},
+            details={
+                "retrieval_mode": "hybrid",
+                "citations": citations,
+                "top_document_id": hits[0].chunk.document_id,
+            },
         )
+
+    @staticmethod
+    def _extract_actions(content: str) -> list[str]:
+        actions = []
+        for line in content.splitlines():
+            match = BULLET.match(line.strip())
+            if match:
+                action = match.group(1).strip()
+                if action and action not in actions:
+                    actions.append(action)
+        return actions[:6]

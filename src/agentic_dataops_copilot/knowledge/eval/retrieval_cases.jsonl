@@ -1,0 +1,11 @@
+{"query":"AKS pod ImagePullBackOff 拉不到 ACR image","expected_document_id":"k8s-pod-troubleshooting"}
+{"query":"ErrImagePull imagePullSecrets registry authentication","expected_document_id":"k8s-pod-troubleshooting"}
+{"query":"PostgreSQL JDBC connection refused timeout","expected_document_id":"database-connectivity"}
+{"query":"Vertica database DNS port 連線逾時","expected_document_id":"database-connectivity"}
+{"query":"Airflow DAG task failed 要怎麼找第一個失敗 task","expected_document_id":"etl-failure-triage"}
+{"query":"Apache Hop job 重跑 duplicate insert idempotency","expected_document_id":"etl-failure-triage"}
+{"query":"NFS mount permission denied UID GID root_squash","expected_document_id":"storage-permission"}
+{"query":"Azure File PVC fsGroup permission denied","expected_document_id":"storage-permission"}
+{"query":"DELETE FROM table 沒有 WHERE 如何安全檢查","expected_document_id":"sql-change-safety"}
+{"query":"DROP TRUNCATE production rollback backup approval","expected_document_id":"sql-change-safety"}
+{"query":"Grafana Prometheus incident 要保留哪些 metrics logs","expected_document_id":"incident-evidence-collection"}

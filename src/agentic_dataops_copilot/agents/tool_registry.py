@@ -32,7 +32,9 @@ class ToolRegistry:
             ),
             ToolDefinition(
                 name="runbook_search",
-                description="Find the most relevant operational runbook for a DataOps problem.",
+                description=(
+                    "Search the hybrid RAG knowledge base and return evidence with citations."
+                ),
                 parameters=parameters,
             ),
             ToolDefinition(

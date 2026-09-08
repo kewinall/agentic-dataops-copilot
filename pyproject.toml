@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agentic-dataops-copilot"
-version = "0.2.0"
-description = "Agentic DataOps Copilot with pluggable LLM providers and advisory tools."
+version = "0.3.0"
+description = "Agentic DataOps Copilot with hybrid RAG, citations, and pluggable LLM providers."
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
@@ -29,6 +29,12 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+agentic_dataops_copilot = [
+  "knowledge/documents/*.md",
+  "knowledge/eval/*.jsonl",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

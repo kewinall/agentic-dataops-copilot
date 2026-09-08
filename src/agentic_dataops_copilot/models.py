@@ -11,6 +11,18 @@ class AnalyzeRequest(BaseModel):
     context: dict[str, Any] = Field(default_factory=dict)
 
 
+class Citation(BaseModel):
+    citation_id: str
+    document_id: str
+    chunk_id: str
+    title: str
+    source: str
+    score: float
+    lexical_score: float
+    vector_score: float
+    excerpt: str
+
+
 class ToolTrace(BaseModel):
     tool: str
     matched: bool
@@ -24,10 +36,22 @@ class AnalyzeResponse(BaseModel):
     severity: Severity
     summary: str
     recommended_actions: list[str]
+    citations: list[Citation] = Field(default_factory=list)
     tool_traces: list[ToolTrace]
     latency_ms: float
     execution_mode: ExecutionMode
     provider: str | None = None
+
+
+class KnowledgeSearchRequest(BaseModel):
+    query: str = Field(min_length=1, max_length=10_000)
+    top_k: int = Field(default=3, ge=1, le=10)
+
+
+class KnowledgeSearchResponse(BaseModel):
+    query: str
+    total_chunks: int
+    citations: list[Citation]
 
 
 class HealthResponse(BaseModel):

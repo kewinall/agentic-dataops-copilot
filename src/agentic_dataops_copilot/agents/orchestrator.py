@@ -2,7 +2,7 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
-from agentic_dataops_copilot.models import ExecutionMode, ToolTrace
+from agentic_dataops_copilot.models import Citation, ExecutionMode, ToolTrace
 from agentic_dataops_copilot.providers import LLMProvider
 from agentic_dataops_copilot.tools.base import ToolResult
 
@@ -26,12 +26,21 @@ INCIDENT_HINTS = (
     "失敗",
     "錯誤",
 )
-SENSITIVE_KEYWORDS = ("password", "passwd", "secret", "token", "api_key", "apikey", "authorization")
+SENSITIVE_KEYWORDS = (
+    "password",
+    "passwd",
+    "secret",
+    "token",
+    "api_key",
+    "apikey",
+    "authorization",
+)
 
 SYSTEM_PROMPT = """
 You are an enterprise DataOps copilot. Use only the provided advisory tools.
 Do not claim that you changed infrastructure, databases, cloud resources, or files.
-Prefer tool evidence over assumptions. Ask for more evidence when data is insufficient.
+Prefer tool evidence and citations over assumptions.
+Ask for more evidence when data is insufficient.
 When synthesizing tool results, preserve risk severity and make recommendations concise.
 """.strip()
 
@@ -63,7 +72,7 @@ class DataOpsOrchestrator:
 
         try:
             return self._llm_tool_calling(message, context or {})
-        except Exception as exc:  # provider/network failures must not break the API
+        except Exception as exc:
             result = self._deterministic(message)
             result.execution_mode = "deterministic-fallback"
             result.provider = self.provider.name
@@ -146,8 +155,8 @@ class DataOpsOrchestrator:
             {
                 "role": "system",
                 "content": (
-                    "Synthesize the evidence. Do not state that any remediation was executed. "
-                    "Keep the answer concise and operational."
+                    "Synthesize the tool evidence and preserve citation identifiers. "
+                    "Do not state that remediation was executed. Keep the answer operational."
                 ),
             },
         ]
@@ -271,6 +280,26 @@ class DataOpsOrchestrator:
                 if action not in actions:
                     actions.append(action)
         return actions[:8]
+
+    @staticmethod
+    def _collect_citations(results: list[ToolResult]) -> list[Citation]:
+        citations: list[Citation] = []
+        seen: set[str] = set()
+
+        for result in results:
+            raw_citations = result.details.get("citations", [])
+            if not isinstance(raw_citations, list):
+                continue
+            for item in raw_citations:
+                if not isinstance(item, dict):
+                    continue
+                citation = Citation(**item)
+                if citation.citation_id in seen:
+                    continue
+                seen.add(citation.citation_id)
+                citations.append(citation)
+
+        return citations[:5]
 
     @classmethod
     def _sanitize_context(cls, value: Any) -> Any:

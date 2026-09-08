@@ -33,6 +33,10 @@ jobs:
       - name: Test
         run: pytest --cov=agentic_dataops_copilot --cov-report=term-missing
 
+      - name: RAG retrieval evaluation
+        run: |
+          python -m agentic_dataops_copilot.knowledge.evaluation             --top-k 3             --min-hit-rate 0.90
+
   docker:
     runs-on: ubuntu-latest
     steps:
