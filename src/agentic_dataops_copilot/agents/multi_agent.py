@@ -54,7 +54,10 @@ class MultiAgentCoordinator:
                 summary=(
                     "High-risk outcome: use the governed action workflow before any mutation."
                     if analysis.severity in {"high", "critical"}
-                    else "Review completed; recommendations remain advisory until explicitly planned."
+                    else (
+                        "Review completed; recommendations remain advisory "
+                        "until explicitly planned."
+                    )
                 ),
                 actions=[],
             ),
