@@ -1,94 +1,192 @@
 # Architecture / 架構設計
 
-## v0.3 Architecture
+## v0.5 Architecture
 
-```text
-Client / UI / CLI
-       |
-       v
-    FastAPI
-       |
-       v
-DataOpsOrchestrator
-       |
-       +----------------------+
-       |                      |
-       v                      v
-LLM Provider          Deterministic Guardrails
-OpenAI/Ollama         Incident + SQL Safety
-       |                      |
-       v                      |
-Structured Tool Calling      |
-       |                      |
-       +----------+-----------+
-                  |
-                  v
-             Tool Registry
-                  |
-                  v
-          Runbook Search Tool
-                  |
-                  v
-         Hybrid RAG Knowledge
-          /              \
-   Lexical             Vector
-   Retrieval          Retrieval
-                          |
-                    VectorStore
-          \              /
-           +------------+
-                  |
-                  v
-              Citations
-                  |
-                  v
-          Guardrail Merge
-                  |
-                  v
-       LLM synthesis or fallback
-                  |
-                  v
-          Unified API Response
-```
+    User / Web UI / API / MCP
+              |
+              v
+       Identity / Role Context
+              |
+       +------+------+
+       |             |
+       v             v
+    Multi-Agent   MCP Integrations
+      Layer       K8s/Airflow/GitLab/DB
+       |             |
+       v             v
+    Analysis       Evidence
+       |             |
+       +------+------+
+              |
+              v
+      Governed Action Plan
+              |
+              v
+      Deterministic Policy
+    allow / approval / deny
+              |
+       +------+------+
+       |             |
+      DENY      PENDING APPROVAL
+                     |
+                     v
+               Human Approver
+              different identity
+                     |
+             +-------+-------+
+             |               |
+          REJECT           APPROVE
+                             |
+                             v
+                      Execution Policy
+                             |
+                             v
+                   ActionExecutorRegistry
+                    empty by default
+                             |
+                    +--------+--------+
+                    |                 |
+               unavailable         configured
+                    |                 |
+                fail safely      executor call
+                    |                 |
+                    +--------+--------+
+                             |
+                             v
+                      Hash-chain Audit
 
-## Core Principles / 核心原則
+## Layer Responsibilities
 
-1. **Provider abstraction**：Orchestrator 只依賴 `LLMProvider` contract。
-2. **Tool registry**：LLM 只能呼叫已註冊、具 schema 的 advisory tools。
-3. **RAG evidence**：Runbook Retrieval 從 Markdown knowledge documents 建立 hybrid index。
-4. **Citations**：每個 retrieval result 保留 document、chunk、source、score 與 excerpt。
-5. **Guardrails**：SQL 與 incident safety 不完全交由 LLM 判斷。
-6. **Fallback**：provider error 或無 tool call 時，自動回 deterministic mode。
-7. **Secret redaction**：secret-like context key 送 provider 前遮罩。
-8. **Evaluation**：retrieval regression dataset 納入 CI quality gate。
+### 1. Multi-Agent
 
-## Execution Modes
+MultiAgentCoordinator does not create autonomous authority. It decomposes analysis into specialist responsibilities:
 
-| Mode | 說明 |
-|---|---|
-| `deterministic` | 沒有設定 LLM provider，由 deterministic tools + RAG 執行 |
-| `llm-tool-calling` | Provider 成功呼叫 tools 並完成 synthesis |
-| `deterministic-fallback` | Provider error 或沒有 tool call，安全降級 |
+- triage
+- evidence
+- safety
+- recommendation
+- reviewer
 
-## Evidence Contract
+The existing deterministic orchestrator remains responsible for guardrail-compatible final analysis.
 
-Agent 回答不是唯一 evidence。API 同時回傳：
+### 2. Knowledge and Evidence
 
-- `severity`
-- `recommended_actions`
-- `citations`
-- `tool_traces`
-- `execution_mode`
-- `provider`
-- `latency_ms`
+Two evidence classes coexist:
 
-因此使用者可以區分模型敘述、deterministic rule 與 RAG knowledge source。
+- RAG citations from Markdown operational knowledge.
+- Runtime Evidence from read-only platform adapters.
 
-## Safety Boundary
+Both are distinguishable from model-generated narrative.
 
-v0.3 仍不包含 `kubectl apply/delete`、database write 或 cloud mutation tools。
-目前流程是 Retrieve → Cite → Analyze → Recommend。真正 action capability 會留到後續 approval/policy 版本。
+### 3. Governance Engine
 
-## More
+GovernanceEngine owns the controlled action lifecycle:
 
-RAG 細節請見 [RAG_ARCHITECTURE.md](RAG_ARCHITECTURE.md)。
+- plan
+- policy decision
+- approval/rejection
+- execution authorization
+- executor dispatch
+- audit event creation
+
+No LLM method can directly call an executor.
+
+### 4. Policy Engine
+
+PolicyEngine is deterministic and authoritative.
+
+Default rules:
+
+1. Unknown action → deny.
+2. Viewer action plan → deny.
+3. Dry-run by non-viewer → allow preview.
+4. Mutation request → operator/admin only.
+5. Critical risk → default deny.
+6. Mutation → require separate approval.
+7. Self-approval → deny.
+8. Execute without approved state → deny.
+
+### 5. Executor Registry
+
+ActionExecutorRegistry is deliberately empty in the default application.
+
+A mutation implementation must be explicitly registered by application code. This creates a second allow-list after the policy catalog.
+
+### 6. Audit
+
+AuditLog is append-only through its public interface.
+
+Each event contains:
+
+- event ID
+- event type
+- actor / role
+- action ID
+- details
+- timestamp
+- previous hash
+- event hash
+
+The SHA-256 chain allows verify_chain() to detect sequence/content tampering within the running process.
+
+## Identity Boundary
+
+### API
+
+Reference/demo headers:
+
+    X-Copilot-User
+    X-Copilot-Role
+
+These headers are not themselves authentication. Production deployments must source them from a trusted authentication layer.
+
+### MCP
+
+MCP identity is server-side deployment configuration:
+
+    COPILOT_MCP_SUBJECT=automation-operator
+    COPILOT_MCP_ROLE=operator
+
+Tool callers cannot override the configured identity through tool arguments.
+
+## State
+
+v0.5 uses in-memory stores for portfolio simplicity:
+
+- ActionStore
+- AuditLog
+
+This keeps the project dependency-light and CI reproducible. Persistent transaction-safe storage is a v0.6 hardening target.
+
+## Safety Properties
+
+The architecture has multiple independent controls:
+
+    Action Catalog
+        AND
+    RBAC
+        AND
+    Risk Policy
+        AND
+    Human Approval
+        AND
+    Separation of Duties
+        AND
+    Execution Policy
+        AND
+    Explicit Executor Registry
+        AND
+    Audit
+
+Failure of one inference/model layer does not grant action authority.
+
+## Backward Compatibility
+
+v0.5 retains:
+
+- v0.1 deterministic tools
+- v0.2 LLM provider abstraction/fallback
+- v0.3 hybrid RAG/citations/evaluation
+- v0.4 MCP read-only integrations
+
+Existing /api/v1/copilot/analyze behavior remains available while /api/v1/copilot/collaborate adds structured specialist contributions.

@@ -1,131 +1,149 @@
 # MCP & DataOps Integrations / MCP 與資料平台整合
 
-## v0.4 Goal
+## v0.5 Role
 
-v0.4 將 Copilot 從「內部 Agent + RAG」擴充成可被 MCP host 使用的 DataOps tool server，並建立統一的 read-only integration contract。
+v0.4 建立 read-only DataOps MCP integrations；v0.5 在同一個 MCP server 上加入 governed action control plane。
+
+MCP therefore has two capability classes:
+
+1. Evidence collection — read-only.
+2. Governed action workflow — policy/approval/executor controlled.
 
 ## MCP SDK
 
-本版使用官方 Python MCP SDK v2：
+The server uses the Python MCP SDK v2 API.
 
-```python
-from mcp.server import MCPServer
-```
+Start:
 
-MCP server 可透過 console entry point 啟動：
+    dataops-mcp
 
-```bash
-dataops-mcp
-```
+## Read-only MCP Tools
 
-預設 transport 為 `stdio`。也可使用 MCP CLI/host 以 Streamable HTTP 等 transport 部署。
+| Tool | Purpose | Mutation |
+|---|---|---:|
+| integration_health | Adapter health | No |
+| kubernetes_read | Pod list/events/logs | No |
+| airflow_read | DAG runs/task instances | No |
+| gitlab_read | Pipelines/jobs | No |
+| database_read | Health/metadata | No |
 
-## Exposed MCP Tools
+The v0.4 read-only contracts are unchanged.
 
-| Tool | Purpose | Write access |
-|---|---|---|
-| `integration_health` | 查看已設定 adapter 健康狀態 | No |
-| `kubernetes_read` | Pod list / describe events / tail logs | No |
-| `airflow_read` | DAG runs / task instances | No |
-| `gitlab_read` | Pipelines / pipeline jobs | No |
-| `database_read` | DB health / metadata | No |
+## Governance MCP Tools
 
-MCP layer 不提供 `kubectl apply/delete`、Airflow DAG mutation、GitLab pipeline mutation、任意 SQL execution。
+| Tool | Purpose |
+|---|---|
+| governance_status | Policy/executor state and configured MCP identity |
+| action_plan | Create dry-run or mutation action plan |
+| action_approve | Approve with server-side approver/admin identity |
+| action_reject | Reject pending action |
+| action_execute | Execute only after policy authorization |
+
+## MCP Identity
+
+Identity is deployment-side configuration, not a tool argument:
+
+    export COPILOT_MCP_SUBJECT=automation-operator
+    export COPILOT_MCP_ROLE=operator
+    dataops-mcp
+
+Supported roles:
+
+- viewer
+- operator
+- approver
+- admin
+
+A caller cannot pass role=admin to a tool and override the configured MCP identity.
+
+For separation of duties, production environments should run distinct MCP identities/endpoints or route approval to a separate trusted approval service.
 
 ## Normalized Evidence
 
-所有 adapter 都回傳同一個 Evidence contract：
+Read-only adapters still return the Evidence contract:
 
-```json
-{
-  "adapter": "kubernetes",
-  "operation": "list_pods",
-  "status": "ok",
-  "summary": "Collected Kubernetes evidence via list_pods.",
-  "data": {},
-  "source": "kubectl:dev",
-  "collected_at": "2026-09-09T00:00:00+00:00",
-  "read_only": true
-}
-```
-
-這讓 Agent、MCP host、未來 audit/policy layer 不需要理解每個平台不同的回傳格式。
+    {
+      "adapter": "kubernetes",
+      "operation": "list_pods",
+      "status": "ok",
+      "summary": "Collected Kubernetes evidence via list_pods.",
+      "data": {},
+      "source": "kubectl:dev",
+      "collected_at": "2026-09-09T00:00:00+00:00",
+      "read_only": true
+    }
 
 ## Kubernetes Adapter
 
-使用本機 `kubectl` context，command 由程式白名單組合，不接受任意 shell command。
+Allow-list:
 
-允許：
+- list_pods
+- pod_events
+- pod_logs
 
-- `list_pods`
-- `pod_events`
-- `pod_logs`
-
-所有 subprocess 都使用 `shell=False`、argument list 與 timeout。
+Commands are built from argument lists with shell=False; arbitrary shell is not accepted.
 
 ## Airflow Adapter
 
-環境變數：
+Environment:
 
-```bash
-COPILOT_AIRFLOW_URL=https://airflow.example.internal
-COPILOT_AIRFLOW_TOKEN=...
-```
+    COPILOT_AIRFLOW_URL=https://airflow.example.internal
+    COPILOT_AIRFLOW_TOKEN=...
 
-允許：
+Allow-list:
 
-- `dag_runs`
-- `task_instances`
-
-HTTP error 與 timeout 會轉換成 normalized integration error，而不是直接把 credential 或 raw exception 洩漏給 Agent。
+- dag_runs
+- task_instances
 
 ## GitLab Adapter
 
-環境變數：
+Environment:
 
-```bash
-COPILOT_GITLAB_URL=https://gitlab.example.internal
-COPILOT_GITLAB_TOKEN=...
-```
+    COPILOT_GITLAB_URL=https://gitlab.example.internal
+    COPILOT_GITLAB_TOKEN=...
 
-允許：
+Allow-list:
 
-- `pipelines`
-- `pipeline_jobs`
-
-project path 會 URL encode，避免 `group/project` 路徑解析錯誤。
+- pipelines
+- pipeline_jobs
 
 ## Database Adapter
 
-Database adapter 接受 Python DB-API style connection factory，因此不綁定特定 driver。
+DB-API connection factory with fixed read queries:
 
-允許：
+- health
+- list_tables
 
-- `health` → 固定 `SELECT 1 AS health_check`
-- `list_tables` → 固定查詢 `information_schema.tables`
+It does not accept caller-supplied arbitrary SQL.
 
-不接受 user-supplied SQL，因此不會因 MCP tool call 直接形成 arbitrary SQL execution surface。
+## Mutation Boundary
+
+The existence of action_execute does **not** imply a production mutation tool is enabled.
+
+The governance engine default:
+
+    configured_executors = []
+    safe_by_default = true
+
+A real action requires a separately registered executor after policy and approval.
 
 ## MCP Client Adapter
 
-`MCPClientAdapter` 封裝官方 `Client`：
+Existing wrapper remains available:
 
-```python
-client = MCPClientAdapter("http://localhost:8000/mcp")
-tools = await client.list_tools()
-result = await client.call_tool("integration_health", {})
-```
-
-後續 v0.5 可在此層加入 policy、approval、identity propagation 與 audit correlation。
+    client = MCPClientAdapter("http://localhost:8000/mcp")
+    tools = await client.list_tools()
+    result = await client.call_tool("integration_health", {})
 
 ## Test Strategy
 
-CI 不需要 Kubernetes cluster、Airflow、GitLab 或 Database credential：
+CI uses no production credentials:
 
-- Kubernetes：mock command runner
-- Airflow：`httpx.MockTransport`
-- GitLab：`httpx.MockTransport`
-- Database：fake DB-API connection/cursor
-- MCP：build server smoke test
+- Kubernetes: mock command runner
+- Airflow: httpx.MockTransport
+- GitLab: httpx.MockTransport
+- Database: fake DB-API connection/cursor
+- Governance: in-memory policy/store/audit and fake executor
+- MCP: server construction smoke test
 
-因此 integration contract 可在 GitHub Actions 可重現驗證，同時不將 production secret 帶入 CI。
+This verifies contract behavior without requiring a real cluster or mutable infrastructure.
