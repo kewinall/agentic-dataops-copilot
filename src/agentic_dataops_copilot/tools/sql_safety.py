@@ -42,7 +42,7 @@ class SqlSafetyTool:
                 {
                     "rule": "destructive-drop",
                     "severity": "high",
-                    "message": "偵測到 DROP 類 DDL，執行前應確認 change approval 與 recovery plan。",
+                    "message": (\n                        "偵測到 DROP 類 DDL，執行前應確認 change approval 與 recovery plan。"\n                    ),
                 }
             )
             if severity != "critical":
@@ -75,7 +75,7 @@ class SqlSafetyTool:
                 tool=self.name,
                 matched=True,
                 severity="info",
-                summary="未命中 v0.1 高風險 SQL rule；仍需依實際 schema 與 transaction context 審查。",
+                summary=(\n                    "未命中 v0.1 高風險 SQL rule；"\n                    "仍需依實際 schema 與 transaction context 審查。"\n                ),
                 details={"safe_by_rules": True, "findings": []},
             )
 
