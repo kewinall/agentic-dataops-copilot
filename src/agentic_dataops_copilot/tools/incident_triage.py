@@ -72,7 +72,9 @@ RULES: tuple[IncidentRule, ...] = (
         keywords=("task failed", "dag failed", "pipeline failed", "etl failed"),
         severity="medium",
         category="data-pipeline",
-        probable_cause=(\n            "Pipeline task 執行失敗，需要從第一個失敗節點與 upstream dependency 開始定位。"\n        ),
+        probable_cause=(
+            "Pipeline task 執行失敗，需要從第一個失敗節點與 upstream dependency 開始定位。"
+        ),
         actions=(
             "先找出第一個 failed task，而非只看後續 cascading failures。",
             "比對 input/output row count、dependency 狀態與近期 deployment。",
