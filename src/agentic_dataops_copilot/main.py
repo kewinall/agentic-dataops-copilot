@@ -23,7 +23,10 @@ knowledge_index = get_default_index()
 app = FastAPI(
     title="Agentic DataOps Copilot",
     version=__version__,
-    description="DataOps agent with hybrid RAG, citations, deterministic guardrails, and LLM tools.",
+    description=(
+        "DataOps agent with hybrid RAG, citations, deterministic guardrails, "
+        "and LLM tools."
+    ),
 )
 
 
