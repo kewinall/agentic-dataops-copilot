@@ -24,6 +24,14 @@ class RunbookSearchTool:
             )
 
         citations = [hit_to_citation(hit) for hit in hits]
+        recommendations = [
+            {
+                "id": hit.chunk.document_id,
+                "title": hit.chunk.title,
+                "score": round(hit.score, 4),
+            }
+            for hit in hits
+        ]
         actions = self._extract_actions(hits[0].chunk.content)
 
         return ToolResult(
@@ -38,6 +46,7 @@ class RunbookSearchTool:
             details={
                 "retrieval_mode": "hybrid",
                 "citations": citations,
+                "recommendations": recommendations,
                 "top_document_id": hits[0].chunk.document_id,
             },
         )
