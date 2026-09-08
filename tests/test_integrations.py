@@ -58,7 +58,7 @@ def test_airflow_adapter_with_mock_transport() -> None:
 
 def test_gitlab_adapter_encodes_project_path() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
-        assert request.url.path == "/api/v4/projects/team%2Fplatform/pipelines"
+        assert request.url.raw_path.decode() == "/api/v4/projects/team%2Fplatform/pipelines"
         return httpx.Response(200, json=[{"id": 10, "status": "failed"}])
 
     client = httpx.Client(transport=httpx.MockTransport(handler))
