@@ -1,0 +1,40 @@
+name: Bootstrap v0.1.0 Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/release-v0.1.0.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Prepare release archive
+        env:
+          RELEASE_SHA: "2733d69b1577d883c05c2cfe661ab78ef978fbcd"
+          VERSION: "v0.1.0"
+        run: |
+          git archive --format=zip --output="agentic-dataops-copilot-${VERSION}.zip" "${RELEASE_SHA}"
+          sha256sum "agentic-dataops-copilot-${VERSION}.zip" > "agentic-dataops-copilot-${VERSION}.zip.sha256"
+
+      - name: Create GitHub Release and tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: "2733d69b1577d883c05c2cfe661ab78ef978fbcd"
+          VERSION: "v0.1.0"
+        run: |
+          if gh release view "${VERSION}" >/dev/null 2>&1; then
+            echo "Release ${VERSION} already exists; nothing to do."
+            exit 0
+          fi
+
+          gh release create "${VERSION}"             --target "${RELEASE_SHA}"             --title "Agentic DataOps Copilot ${VERSION}"             --notes-file CHANGELOG.md             "agentic-dataops-copilot-${VERSION}.zip"             "agentic-dataops-copilot-${VERSION}.zip.sha256"
