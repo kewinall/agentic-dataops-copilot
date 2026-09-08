@@ -42,6 +42,7 @@ class AnalysisResult:
     severity: str
     summary: str
     actions: list[str]
+    citations: list[Citation]
     traces: list[ToolTrace]
     execution_mode: ExecutionMode
     provider: str | None = None
@@ -224,6 +225,7 @@ class DataOpsOrchestrator:
             else self._default_summary(intent, matched)
         )
         actions = self._unique_actions(matched)
+        citations = self._collect_citations(results)
         traces = [
             ToolTrace(
                 tool=result.tool,
@@ -238,6 +240,7 @@ class DataOpsOrchestrator:
             severity=severity,
             summary=summary,
             actions=actions,
+            citations=citations,
             traces=traces,
             execution_mode=execution_mode,
             provider=provider,
