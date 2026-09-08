@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agentic-dataops-copilot"
-version = "0.3.0"
-description = "Agentic DataOps Copilot with hybrid RAG, citations, and pluggable LLM providers."
+version = "0.4.0"
+description = "Agentic DataOps Copilot with hybrid RAG, MCP, and read-only platform integrations."
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
@@ -13,6 +13,7 @@ authors = [{name = "kewinall"}]
 dependencies = [
   "fastapi>=0.115,<1.0",
   "httpx>=0.27,<1.0",
+  "mcp>=2,<3",
   "pydantic>=2.9,<3.0",
   "uvicorn[standard]>=0.30,<1.0",
 ]
@@ -23,6 +24,9 @@ dev = [
   "pytest-cov>=5.0,<7.0",
   "ruff>=0.8,<1.0",
 ]
+
+[project.scripts]
+dataops-mcp = "agentic_dataops_copilot.mcp_server:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
