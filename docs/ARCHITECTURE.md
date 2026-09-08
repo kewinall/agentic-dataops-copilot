@@ -1,6 +1,6 @@
 # Architecture / 架構設計
 
-## v0.2 Architecture
+## v0.3 Architecture
 
 ```text
 Client / UI / CLI
@@ -11,84 +11,84 @@ Client / UI / CLI
        v
 DataOpsOrchestrator
        |
-       +---------------------------+
-       |                           |
-       | no provider               | provider configured
-       v                           v
-Deterministic Router         LLM Provider
-       |                     /          \
-       |              OpenAI-compatible  Ollama
-       |                     \          /
-       |                      Tool Calls
-       |                          |
-       +------------+-------------+
-                    |
-                    v
-               Tool Registry
-          /          |          \
- Incident Triage  Runbook     SQL Safety
-          \          |          /
-           +---------+----------+
-                     |
-                     v
-              Guardrail Merge
-                     |
-                     v
-       LLM Synthesis or Deterministic
-                     |
-                     v
-              Unified Response
+       +----------------------+
+       |                      |
+       v                      v
+LLM Provider          Deterministic Guardrails
+OpenAI/Ollama         Incident + SQL Safety
+       |                      |
+       v                      |
+Structured Tool Calling      |
+       |                      |
+       +----------+-----------+
+                  |
+                  v
+             Tool Registry
+                  |
+                  v
+          Runbook Search Tool
+                  |
+                  v
+         Hybrid RAG Knowledge
+          /              \
+   Lexical             Vector
+   Retrieval          Retrieval
+                          |
+                    VectorStore
+          \              /
+           +------------+
+                  |
+                  v
+              Citations
+                  |
+                  v
+          Guardrail Merge
+                  |
+                  v
+       LLM synthesis or fallback
+                  |
+                  v
+          Unified API Response
 ```
 
-## 中文
-
-### 核心原則
-
-v0.2 把 LLM 放在 **orchestration / synthesis layer**，而不是直接給它 infrastructure
-write access。
+## Core Principles / 核心原則
 
 1. **Provider abstraction**：Orchestrator 只依賴 `LLMProvider` contract。
-2. **Tool Registry**：所有可呼叫能力都必須先註冊並提供 JSON schema。
-3. **Guardrails**：SQL 與 incident safety 判斷不完全依賴 LLM。
-4. **Fallback**：provider error 或未呼叫 tool 時，自動回到 deterministic flow。
-5. **Context redaction**：常見 secret-like key 在送進 LLM 前遮罩。
-6. **Observability**：response 保留 tool traces、provider、execution mode 與 latency。
+2. **Tool registry**：LLM 只能呼叫已註冊、具 schema 的 advisory tools。
+3. **RAG evidence**：Runbook Retrieval 從 Markdown knowledge documents 建立 hybrid index。
+4. **Citations**：每個 retrieval result 保留 document、chunk、source、score 與 excerpt。
+5. **Guardrails**：SQL 與 incident safety 不完全交由 LLM 判斷。
+6. **Fallback**：provider error 或無 tool call 時，自動回 deterministic mode。
+7. **Secret redaction**：secret-like context key 送 provider 前遮罩。
+8. **Evaluation**：retrieval regression dataset 納入 CI quality gate。
 
-### Execution Modes
+## Execution Modes
 
 | Mode | 說明 |
 |---|---|
-| `deterministic` | 沒有設定 LLM provider |
-| `llm-tool-calling` | Provider 成功呼叫 tool 並完成 synthesis |
-| `deterministic-fallback` | Provider error 或沒有 tool call |
+| `deterministic` | 沒有設定 LLM provider，由 deterministic tools + RAG 執行 |
+| `llm-tool-calling` | Provider 成功呼叫 tools 並完成 synthesis |
+| `deterministic-fallback` | Provider error 或沒有 tool call，安全降級 |
 
-### v0.2 Tool Calling Flow
+## Evidence Contract
 
-```text
-User
-  |
-  v
-Provider + tool schemas
-  |
-  +--> incident_triage(message)
-  +--> runbook_search(message)
-  +--> sql_safety(message)
-  |
-  v
-ToolResult JSON
-  |
-  v
-Provider synthesis
-  |
-  v
-API response
-```
+Agent 回答不是唯一 evidence。API 同時回傳：
 
-目前只允許一輪 tool calling，避免無限制 agent loop。後續版本才會加入 multi-agent、
-approval gate 與 action policy。
+- `severity`
+- `recommended_actions`
+- `citations`
+- `tool_traces`
+- `execution_mode`
+- `provider`
+- `latency_ms`
 
-## English
+因此使用者可以區分模型敘述、deterministic rule 與 RAG knowledge source。
 
-v0.2 introduces a provider-neutral LLM layer while retaining deterministic safety controls.
-The LLM may select advisory tools, but it cannot directly mutate Kubernetes, databases, or cloud
-resources. Provider failure and no-tool responses automatically fall back to deterministic mode.
+## Safety Boundary
+
+v0.3 仍不包含 `kubectl apply/delete`、database write 或 cloud mutation tools。
+目前流程是 Retrieve → Cite → Analyze → Recommend。真正 action capability 會留到後續 approval/policy 版本。
+
+## More
+
+RAG 細節請見 [RAG_ARCHITECTURE.md](RAG_ARCHITECTURE.md)。
