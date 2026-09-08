@@ -89,10 +89,7 @@ class DataOpsOrchestrator:
         user_content = message
         if safe_context:
             user_content = (
-                f"{message}
-
-Context (sensitive values redacted):
-"
+                f"{message}\n\nContext (sensitive values redacted):\n"
                 f"{json.dumps(safe_context, ensure_ascii=False)}"
             )
 
