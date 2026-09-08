@@ -89,7 +89,10 @@ class DataOpsOrchestrator:
         user_content = message
         if safe_context:
             user_content = (
-                f"{message}\n\nContext (sensitive values redacted):\n"
+                f"{message}
+
+Context (sensitive values redacted):
+"
                 f"{json.dumps(safe_context, ensure_ascii=False)}"
             )
 
@@ -218,7 +221,11 @@ class DataOpsOrchestrator:
         matched = [result for result in results if result.matched]
         severity = max(results, key=lambda item: SEVERITY_ORDER[item.severity]).severity
         intent = self._infer_intent(message, results)
-        summary = (\n            summary_override.strip()\n            if summary_override\n            else self._default_summary(intent, matched)\n        )
+        summary = (
+            summary_override.strip()
+            if summary_override
+            else self._default_summary(intent, matched)
+        )
         actions = self._unique_actions(matched)
         traces = [
             ToolTrace(
