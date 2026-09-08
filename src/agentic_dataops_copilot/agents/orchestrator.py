@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from agentic_dataops_copilot.models import ExecutionMode, ToolTrace
-from agentic_dataops_copilot.providers import LLMProvider, ToolCall
+from agentic_dataops_copilot.providers import LLMProvider
 from agentic_dataops_copilot.tools.base import ToolResult
 
 from .tool_registry import ToolRegistry
@@ -218,7 +218,7 @@ class DataOpsOrchestrator:
         matched = [result for result in results if result.matched]
         severity = max(results, key=lambda item: SEVERITY_ORDER[item.severity]).severity
         intent = self._infer_intent(message, results)
-        summary = summary_override.strip() if summary_override else self._default_summary(intent, matched)
+        summary = (\n            summary_override.strip()\n            if summary_override\n            else self._default_summary(intent, matched)\n        )
         actions = self._unique_actions(matched)
         traces = [
             ToolTrace(
