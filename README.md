@@ -1,27 +1,68 @@
 # Agentic DataOps Copilot
 
-> 企業級 DataOps Copilot：以 Agent + Tools 協助資料平台進行 Incident Triage、Runbook Retrieval 與 SQL Safety Analysis。  
-> Enterprise DataOps Copilot powered by an agent-and-tools architecture for incident triage, runbook retrieval, and SQL safety analysis.
+> 企業級 DataOps Copilot：以 Agent + Tools 協助資料平台進行 Incident Triage、
+> Runbook Retrieval、SQL Safety 與 LLM Tool Calling。  
+> Enterprise DataOps Copilot with deterministic guardrails and pluggable LLM tool calling.
 
 [![CI](https://github.com/kewinall/agentic-dataops-copilot/actions/workflows/ci.yml/badge.svg)](https://github.com/kewinall/agentic-dataops-copilot/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-## 專案定位 / Project Positioning
+## Current Version
 
-**Agentic DataOps Copilot** 是一個面向資料工程與平台維運情境的 AI Agent 專案。v0.1 先建立不依賴外部 LLM 的可執行基線，讓核心工具、API、測試與 CI 可以穩定運作；後續版本再加入 LLM routing、MCP、RAG 與實際平台 integrations。
+**v0.2.0**
 
-The project is an AI-agent foundation for data engineering and platform operations. v0.1 intentionally ships with a deterministic, no-API-key baseline so tools, API contracts, tests, and CI remain reproducible. Later releases will add LLM routing, MCP, RAG, and real platform integrations.
+v0.2 將 v0.1 的 deterministic DataOps tools 擴充為真正的 provider-neutral agent
+architecture，同時保留安全 fallback，讓 CI 與本機測試不依賴外部 API Key。
 
-## v0.1 功能 / Features
+## Features / 功能
 
-- **Incident Triage**：分析 Kubernetes、Database、ETL / Pipeline 常見錯誤訊息並給出嚴重度、可能原因與建議動作。
-- **Runbook Retrieval**：依問題關鍵字從內建 runbooks 找出最相關的處理步驟。
-- **SQL Safety Analysis**：偵測常見高風險 SQL，例如無 WHERE 的 `UPDATE` / `DELETE`、`DROP` / `TRUNCATE`。
-- **Agent Orchestrator**：依使用者輸入自動決定要呼叫哪些 tools，整合成單一分析結果。
-- **REST API**：FastAPI 提供 health check 與 Copilot 分析 endpoint。
-- **Observability-ready**：每次分析回傳 `request_id`、tool execution trace 與 latency。
-- **Engineering baseline**：pytest、ruff、Docker、GitHub Actions CI、Security / Contributing / Roadmap 文件。
+- **Incident Triage**：ImagePullBackOff、CrashLoopBackOff、OOMKilled、permission、
+  connectivity、ETL / pipeline failure 等常見情境。
+- **Runbook Retrieval**：依問題搜尋最相關的內建 operational runbook。
+- **SQL Safety**：檢查無 WHERE 的 UPDATE / DELETE、DROP、TRUNCATE、GRANT ALL。
+- **LLM Provider Abstraction**：OpenAI、OpenAI-compatible 與 Ollama。
+- **Structured Tool Calling**：LLM 只能呼叫已註冊的 advisory tools。
+- **Deterministic Guardrails**：SQL / incident safety 不完全交由 LLM 判斷。
+- **Automatic Fallback**：provider error 或沒有 tool call 時回到 deterministic mode。
+- **Context Redaction**：常見 secret-like context key 在送到 provider 前遮罩。
+- **Observability**：request ID、latency、execution mode、provider、tool traces。
+- **Engineering Baseline**：pytest、ruff、Docker、GitHub Actions CI。
+
+## Architecture
+
+```text
+                    +----------------------+
+                    |      FastAPI         |
+                    +----------+-----------+
+                               |
+                               v
+                    +----------------------+
+                    | DataOps Orchestrator |
+                    +----------+-----------+
+                               |
+                +--------------+--------------+
+                |                             |
+                v                             v
+       Deterministic Mode               LLM Provider
+                                      /             \
+                              OpenAI-compatible    Ollama
+                                      \             /
+                                       Tool Calling
+                                            |
+                                            v
+                                      Tool Registry
+                                  /        |        \
+                           Incident     Runbook    SQL Safety
+                                  \        |        /
+                                   +-------+--------+
+                                           |
+                                           v
+                                   Guardrail Merge
+```
+
+詳細設計：[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)  
+Provider 設定：[docs/LLM_PROVIDERS.md](docs/LLM_PROVIDERS.md)
 
 ## Quick Start
 
@@ -36,64 +77,74 @@ pip install -e ".[dev]"
 uvicorn agentic_dataops_copilot.main:app --reload
 ```
 
-Open:
+預設沒有設定 LLM，會以 deterministic mode 執行，不需要任何 API Key。
 
-- API docs: `http://127.0.0.1:8000/docs`
-- Health: `http://127.0.0.1:8000/health`
+## Enable Ollama
 
-## API Example
+```bash
+export COPILOT_LLM_PROVIDER=ollama
+export COPILOT_LLM_MODEL=<installed-model>
+export COPILOT_LLM_BASE_URL=http://localhost:11434
+
+uvicorn agentic_dataops_copilot.main:app --reload
+```
+
+## Enable OpenAI
+
+```bash
+export COPILOT_LLM_PROVIDER=openai
+export COPILOT_LLM_MODEL=<model-name>
+export OPENAI_API_KEY=<your-key>
+
+uvicorn agentic_dataops_copilot.main:app --reload
+```
+
+不希望 credential 留在 shell history 時，請改用 environment secret injection、
+container secret 或部署平台的 secret management。
+
+## API
+
+### Health
+
+```text
+GET /health
+```
+
+### Provider Status
+
+```text
+GET /api/v1/provider
+```
+
+### Available Tools
+
+```text
+GET /api/v1/tools
+```
+
+### Analyze
 
 ```bash
 curl -X POST http://127.0.0.1:8000/api/v1/copilot/analyze \
   -H "Content-Type: application/json" \
   -d '{
     "message": "Kubernetes pod 出現 ImagePullBackOff，請幫我判斷",
-    "context": {"environment": "dev", "platform": "aks"}
+    "context": {"environment": "dev"}
   }'
 ```
 
-SQL safety check:
+Response 會包含：
 
-```bash
-curl -X POST http://127.0.0.1:8000/api/v1/copilot/analyze \
-  -H "Content-Type: application/json" \
-  -d '{"message":"請檢查 SQL: DELETE FROM orders;"}'
+```json
+{
+  "intent": "incident_triage",
+  "severity": "high",
+  "execution_mode": "deterministic",
+  "provider": null,
+  "recommended_actions": [],
+  "tool_traces": []
+}
 ```
-
-## Architecture
-
-```text
-Client
-  |
-  v
-FastAPI
-  |
-  v
-Agent Orchestrator
-  |------> Incident Triage Tool
-  |------> Runbook Retrieval Tool
-  |------> SQL Safety Tool
-  |
-  v
-Unified Copilot Response
-  |
-  +--> request_id / tool traces / latency
-```
-
-詳細設計請見 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。  
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for design details.
-
-## Roadmap
-
-| Version | Goal |
-|---|---|
-| v0.1 | Deterministic Agent + Tools、FastAPI、tests、Docker、CI |
-| v0.2 | LLM provider abstraction、OpenAI / Anthropic / Ollama、tool calling |
-| v0.3 | RAG runbook knowledge base、vector store、citations |
-| v0.4 | MCP server/client、Kubernetes / Airflow / GitLab adapters |
-| v0.5 | Multi-agent workflow、approval gates、audit trail、Web UI |
-
-完整規劃請見 [docs/ROADMAP.md](docs/ROADMAP.md)。
 
 ## Development
 
@@ -111,11 +162,16 @@ docker build -t agentic-dataops-copilot:local .
 docker run --rm -p 8000:8000 agentic-dataops-copilot:local
 ```
 
-## Safety
+## Release History
 
-此專案的 v0.1 tools **只提供分析與建議，不會直接執行基礎設施變更或資料庫寫入**。後續加入 action tools 時，會採 approval gate、allowlist 與 audit logging。
+- **v0.1.0**：Deterministic Agent + Tools baseline。
+- **v0.2.0**：LLM provider abstraction + structured tool calling + fallback。
 
-v0.1 tools are **advisory-only** and do not directly mutate infrastructure or databases. Future action tools will require approval gates, allowlists, and audit logging.
+## Safety Boundary
+
+目前所有 tools 都是 **advisory-only**。沒有 `kubectl apply`、DB write、cloud mutation
+等 action tool。未來若加入 action capability，必須先導入 approval gate、allowlist、
+policy engine、audit trail 與 rollback metadata。
 
 ## License
 

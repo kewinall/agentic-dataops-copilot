@@ -3,6 +3,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 Severity = Literal["info", "low", "medium", "high", "critical"]
+ExecutionMode = Literal["deterministic", "llm-tool-calling", "deterministic-fallback"]
 
 
 class AnalyzeRequest(BaseModel):
@@ -25,6 +26,8 @@ class AnalyzeResponse(BaseModel):
     recommended_actions: list[str]
     tool_traces: list[ToolTrace]
     latency_ms: float
+    execution_mode: ExecutionMode
+    provider: str | None = None
 
 
 class HealthResponse(BaseModel):

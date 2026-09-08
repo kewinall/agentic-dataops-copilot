@@ -1,25 +1,24 @@
 # Roadmap / 開發路線圖
 
-| Version | 中文目標 | English Goal |
-|---|---|---|
-| v0.1 | 建立 deterministic Agent + Tools、FastAPI、測試、Docker、CI | Deterministic agent/tools baseline, API, tests, Docker and CI |
-| v0.2 | LLM provider abstraction、OpenAI / Anthropic / Ollama、tool calling | LLM provider abstraction and tool calling |
-| v0.3 | Runbook RAG、vector store、retrieval citations、evaluation | Runbook RAG with citations and evaluation |
-| v0.4 | MCP、Kubernetes / Airflow / GitLab / DB adapters | MCP and real platform adapters |
-| v0.5 | Multi-agent workflow、approval gate、policy、audit trail、Web UI | Multi-agent workflow, approvals, policy, audit and UI |
+| Version | 中文目標 | English Goal | Status |
+|---|---|---|---|
+| v0.1 | Deterministic Agent + Tools、FastAPI、測試、Docker、CI | Deterministic baseline | ✅ |
+| v0.2 | LLM abstraction、OpenAI-compatible / Ollama、tool calling | LLM tool calling | ✅ |
+| v0.3 | Runbook RAG、vector store、citations、evaluation | RAG knowledge layer | Planned |
+| v0.4 | MCP、Kubernetes / Airflow / GitLab / DB adapters | MCP and integrations | Planned |
+| v0.5 | Multi-agent、approval、policy、audit、Web UI | Controlled agent actions | Planned |
 
-## v0.2 Planned Scope
+## v0.3 Planned Scope
 
-- `LLMProvider` interface
-- OpenAI-compatible provider
-- Ollama local provider
-- provider selection by environment variables
-- structured tool calling contract
-- fallback to deterministic mode when no API key/provider is configured
-- provider unit tests with mocks; CI remains secret-free
+- Runbook document ingestion.
+- Chunking and metadata model.
+- Vector store abstraction.
+- Retrieval citations in API responses.
+- Retrieval evaluation dataset and regression tests.
+- Hybrid retrieval fallback without requiring external LLM credentials in CI.
 
 ## Non-goals
 
-- 直接把 production credential 寫進 repository。
+- 將 production credential 提交到 repository。
 - 在沒有 approval / policy 的情況下自動修改 Kubernetes、Database 或 Cloud 資源。
-- 以 LLM 回覆取代可驗證的 logs、metrics 與 platform evidence。
+- 讓 LLM 回覆取代 logs、metrics、SQL result、deployment state 等可驗證 evidence。

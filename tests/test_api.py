@@ -8,7 +8,14 @@ client = TestClient(app)
 def test_health() -> None:
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "version": "0.1.0"}
+    assert response.json() == {"status": "ok", "version": "0.2.0"}
+
+
+def test_provider_status() -> None:
+    response = client.get("/api/v1/provider")
+    assert response.status_code == 200
+    body = response.json()
+    assert {"enabled", "provider", "model"} <= body.keys()
 
 
 def test_image_pull_incident() -> None:
@@ -23,6 +30,7 @@ def test_image_pull_incident() -> None:
     assert response.status_code == 200
     assert body["intent"] == "incident_triage"
     assert body["severity"] == "high"
+    assert body["execution_mode"] in {"deterministic", "deterministic-fallback"}
     assert any(trace["tool"] == "incident_triage" for trace in body["tool_traces"])
     assert body["recommended_actions"]
 
