@@ -1,71 +1,72 @@
 # Agentic DataOps Copilot
 
-> 企業級 DataOps Copilot：結合 Agent、Hybrid RAG、Citations、Deterministic Guardrails 與可插拔 LLM Provider。
-> Enterprise DataOps Copilot with hybrid RAG, traceable citations, deterministic guardrails, and pluggable LLM tool calling.
+> 企業級 DataOps Copilot：Agent + Hybrid RAG + Citations + MCP + Read-only DataOps Integrations。
+> Enterprise DataOps Copilot with hybrid RAG, MCP, deterministic guardrails, and read-only platform integrations.
 
 [![CI](https://github.com/kewinall/agentic-dataops-copilot/actions/workflows/ci.yml/badge.svg)](https://github.com/kewinall/agentic-dataops-copilot/actions/workflows/ci.yml)
 
 ## Current Version
 
-**v0.3.0**
+**v0.4.0**
 
-v0.3 將 v0.2 的 runbook search 升級為真正的 RAG knowledge layer：Markdown ingestion、chunking、hybrid retrieval、VectorStore abstraction、citations 與 retrieval evaluation 都已納入 CI。
+v0.4 在既有 Agent/RAG 上加入官方 MCP Python SDK v2，以及 Kubernetes、Airflow、GitLab、Database 的 read-only adapters。所有平台資料先正規化成 Evidence，再交給 Agent/MCP host 使用。
 
 ## Architecture
 
 ```text
-User / UI / CLI
-      |
-      v
-   FastAPI
-      |
-      v
-DataOps Orchestrator
-      |
-      +--> LLM Provider (OpenAI-compatible / Ollama)
-      |
-      +--> Deterministic Guardrails
-      |       +-- Incident Triage
-      |       +-- SQL Safety
-      |
-      +--> Runbook Search Tool
-              |
-              v
-        Hybrid RAG Layer
-          /         \
-   Lexical       Hashing Embedding
-                   |
-                   v
-              VectorStore
-                   |
-                   v
-               Citations
+MCP Host / Agent / CLI
+         |
+         v
+     MCP Server
+         |
+         v
+ Integration Registry
+   /      |      |       \
+ K8s   Airflow  GitLab  Database
+   \      |      |       /
+         Evidence
+            |
+            +-------------------+
+            |                   |
+            v                   v
+      DataOps Agent        Hybrid RAG
+            |                   |
+            +---------+---------+
+                      |
+                      v
+              Guardrails + Citations
 ```
 
-## v0.3 Features
+## v0.4 MCP Tools
 
-- Markdown knowledge document ingestion with metadata.
-- Heading-aware chunking.
-- Hybrid lexical + vector retrieval.
-- Deterministic hashing embedding: offline and API-key free.
-- Pluggable VectorStore protocol with InMemoryVectorStore.
-- Citation fields: document, chunk, source, score and excerpt.
-- Knowledge search/status API.
-- Retrieval regression dataset with Hit Rate@K and MRR.
-- CI retrieval quality gate.
-- Existing OpenAI-compatible / Ollama tool calling remains supported.
-- Provider failure still falls back to deterministic analysis.
+- `integration_health`
+- `kubernetes_read`
+- `airflow_read`
+- `gitlab_read`
+- `database_read`
 
-## Built-in Knowledge
+全部是 read-only；沒有 production mutation tool。
 
-| Knowledge document | Coverage |
+## Integration Matrix
+
+| Platform | Read-only capabilities |
 |---|---|
-| Kubernetes Pod Troubleshooting | ImagePullBackOff, ErrImagePull, CrashLoopBackOff, OOMKilled |
-| Database Connectivity | PostgreSQL, Vertica, Oracle, JDBC, DNS, firewall |
-| ETL Pipeline Failure Triage | Airflow, Apache Hop, DAG, retry, idempotency |
-| Mounted Storage Permission | NFS, Azure File, PVC, UID/GID, fsGroup |
-| SQL Change Safety | DELETE/UPDATE, DROP, TRUNCATE, rollback |
-| Incident Evidence Collection | logs, metrics, Grafana, Prometheus |
+| Kubernetes | list pods, describe pod/events, tail pod logs |
+| Airflow | DAG runs, task instances |
+| GitLab | pipelines, pipeline jobs |
+| Database | health check, information_schema tables |
+
+## Normalized Evidence
+
+每個 adapter 統一回傳：
+
+- adapter / operation
+- status / summary
+- data / source
+- collected_at
+- `read_only=true`
+
+這個 contract 是 v0.5 policy / approval / audit 的基礎。
 
 ## Quick Start
 
@@ -75,53 +76,59 @@ cd agentic-dataops-copilot
 python -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
+```
+
+FastAPI：
+
+```bash
 uvicorn agentic_dataops_copilot.main:app --reload
 ```
 
-預設不需要 LLM 或 API Key。
-
-## Knowledge API
-
-Status:
+MCP stdio server：
 
 ```bash
-curl http://127.0.0.1:8000/api/v1/knowledge/status
+dataops-mcp
 ```
 
-Search:
+## Integration Configuration
 
 ```bash
-curl -X POST http://127.0.0.1:8000/api/v1/knowledge/search \
-  -H "Content-Type: application/json" \
-  -d '{"query":"NFS mount permission denied UID GID","top_k":3}'
+export COPILOT_AIRFLOW_URL=https://airflow.example.internal
+export COPILOT_AIRFLOW_TOKEN=<token>
+export COPILOT_GITLAB_URL=https://gitlab.example.internal
+export COPILOT_GITLAB_TOKEN=<token>
 ```
 
-Copilot response 也會直接帶回 `citations`，讓回答可追蹤到來源文件與 chunk。
+Kubernetes 使用執行主機既有 `kubectl` context。Database adapter 以 DB-API connection factory 程式化註冊，不在 repository 綁死任何 DB driver 或 credential。
 
-## Retrieval Evaluation
+## RAG
+
+v0.3 Hybrid RAG 功能完整保留：Markdown ingestion、chunking、lexical + vector retrieval、citations、Hit Rate@K / MRR regression gate。
 
 ```bash
 make eval
 ```
 
-目前 regression dataset 共 11 cases；v0.3 發布前 CI 結果為 **Hit Rate@3 = 1.0、MRR = 1.0**。
+Baseline：11 cases，Hit Rate@3 = 1.0，MRR = 1.0。
 
 ## Documentation
 
 - [Architecture](docs/ARCHITECTURE.md)
 - [RAG Architecture](docs/RAG_ARCHITECTURE.md)
+- [MCP & Integrations](docs/MCP_INTEGRATIONS.md)
 - [LLM Providers](docs/LLM_PROVIDERS.md)
 - [Roadmap](docs/ROADMAP.md)
 
 ## Release History
 
-- v0.1.0 — Deterministic Agent + Tools baseline.
-- v0.2.0 — LLM provider abstraction + structured tool calling + fallback.
-- v0.3.0 — Hybrid RAG + citations + vector-store abstraction + retrieval evaluation.
+- v0.1.0 — Deterministic Agent + Tools.
+- v0.2.0 — LLM provider abstraction + tool calling.
+- v0.3.0 — Hybrid RAG + citations + retrieval evaluation.
+- v0.4.0 — MCP v2 + read-only Kubernetes/Airflow/GitLab/Database integrations.
 
 ## Safety Boundary
 
-目前所有 tools 仍為 advisory-only。RAG citation 是 evidence，不代表 action permission；專案沒有直接提供 Kubernetes、Database 或 Cloud production mutation tools。
+v0.4 的 integrations 是 evidence collection，不是 autonomous remediation。沒有 `kubectl apply/delete`、任意 SQL、GitLab write API 或 Airflow mutation API。真正 action flow 留到具 approval / policy / audit 的後續版本。
 
 ## License
 

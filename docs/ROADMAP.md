@@ -5,19 +5,19 @@
 | v0.1 | Deterministic Agent + Tools、FastAPI、測試、Docker、CI | Deterministic baseline | ✅ |
 | v0.2 | LLM abstraction、OpenAI-compatible / Ollama、tool calling | LLM tool calling | ✅ |
 | v0.3 | Runbook RAG、vector store、citations、evaluation | RAG knowledge layer | ✅ |
-| v0.4 | MCP、Kubernetes / Airflow / GitLab / DB adapters | MCP and integrations | Planned |
+| v0.4 | MCP、Kubernetes / Airflow / GitLab / DB adapters | MCP and integrations | ✅ |
 | v0.5 | Multi-agent、approval、policy、audit、Web UI | Controlled agent actions | Planned |
 
-## v0.4 Planned Scope
+## v0.5 Planned Scope
 
-- MCP server exposing safe DataOps tools.
-- MCP client adapter.
-- Kubernetes read-only diagnostics adapter.
-- Airflow DAG/task read-only diagnostics adapter.
-- GitLab pipeline/job read-only diagnostics adapter.
-- Database metadata and health adapters.
-- Normalized evidence model, timeout and health checks.
-- Mocked integration tests without production credentials.
+- Multi-agent roles: triage, evidence, recommendation and reviewer.
+- Action policy engine with explicit allow/deny rules.
+- Human approval gate before any mutation-capable tool.
+- Audit log with request, evidence, decision, approval and action correlation IDs.
+- Identity / role propagation from MCP or API caller.
+- Optional Web UI for incidents, evidence, citations and approval workflow.
+- Dry-run / plan mode before executing approved changes.
+- Mutation adapters remain disabled unless explicitly configured and authorized.
 
 ## Non-goals
 
