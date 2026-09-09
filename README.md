@@ -1,9 +1,26 @@
 # Agentic DataOps Copilot
 
-> 企業級 DataOps Copilot：Multi-Agent + Hybrid RAG + MCP + Policy + Human Approval + Audit。
-> Enterprise DataOps Copilot with governed multi-agent collaboration, hybrid RAG, MCP integrations, approval workflows, and tamper-evident audit.
+> **繁體中文**：Governed AI Agent for DataOps Incident Analysis and Remediation。主角是 Incident Triage、Evidence Correlation、Root Cause Analysis、Recommendation、Policy 與 Human Approval。
+>
+> **English**: A governed AI agent for DataOps incident analysis and remediation, focused on triage, evidence correlation, root-cause analysis, recommendations, deterministic policy, and human-approved actions.
 
 [![CI](https://github.com/kewinall/agentic-dataops-copilot/actions/workflows/ci.yml/badge.svg)](https://github.com/kewinall/agentic-dataops-copilot/actions/workflows/ci.yml)
+
+## Portfolio Role / 作品集角色
+
+**Primary role: Reasoning & Operations / AI 推理與 DataOps 維運**
+
+此 Repository 主要回答：**AI Agent 如何針對 Data Platform / ETL / Infrastructure Incident 蒐集證據、推理根因並提出受治理的處置建議？**  
+This repository primarily answers: **How can an AI agent collect operational evidence, reason about DataOps incidents, and propose governed remediation?**
+
+Portfolio responsibility boundary:
+
+- **This repository:** incident reasoning, evidence correlation, root-cause analysis, recommendation, policy, approval, controlled action.
+- [Enterprise RAG Platform](https://github.com/kewinall/enterprise-rag-platform): enterprise knowledge ingestion, retrieval, citations, and evaluation.
+- [Data Platform MCP Server](https://github.com/kewinall/data-platform-mcp-server): canonical MCP tool server for PostgreSQL, Vertica, Airflow, logs, metadata, and lineage.
+- [Multi-LLM AI Gateway](https://github.com/kewinall/multi-llm-ai-gateway): model routing, resilience, policy, and cost governance.
+
+> The built-in RAG and MCP adapters in this repository are retained for self-contained demo/regression testing. For the portfolio reference architecture, **Data Platform MCP Server is the preferred external tool layer**.
 
 ## Current Version
 
@@ -23,7 +40,7 @@ v0.5 把 v0.4 的 read-only DataOps evidence layer 升級為 governed action pla
        +------+------+
        |             |
        v             v
-    Hybrid RAG   Read-only MCP integrations
+ Runbook Evidence   Tool / Evidence Layer
     Citations          |
        |               v
        |            Evidence
@@ -153,9 +170,25 @@ Demo API identity is propagated through trusted-style headers:
 
 This is intentionally a portfolio/reference implementation, **not a replacement for production authentication**. In production, place the API behind OIDC/IAP/API Gateway/auth proxy and overwrite these headers from trusted identity claims.
 
-## MCP
+## MCP / Tool Integration
 
-Start:
+For a self-contained demo, this repository still ships an embedded MCP surface.
+
+For the preferred portfolio integration path:
+
+    Agentic DataOps Copilot
+              |
+              | MCP
+              v
+    Data Platform MCP Server
+              |
+      +-------+--------+---------+
+      |       |        |         |
+    Vertica Airflow  GitLab   Logs/Metadata
+
+See: https://github.com/kewinall/data-platform-mcp-server
+
+Embedded demo start:
 
     dataops-mcp
 
@@ -204,9 +237,10 @@ API:
 
 Response includes chain_valid, allowing callers to verify that the in-memory event sequence has not been altered.
 
-## RAG & Integrations
+## Evidence Layer & Embedded Integrations
 
-v0.3 and v0.4 remain intact:
+The v0.3/v0.4 RAG and integration components remain intact as a self-contained evidence layer and regression baseline. They are **not intended to replace** the dedicated Enterprise RAG Platform or Data Platform MCP Server.
+
 
 - Markdown knowledge ingestion
 - Hybrid lexical + vector retrieval
