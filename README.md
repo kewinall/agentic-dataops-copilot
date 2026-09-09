@@ -1,5 +1,10 @@
 # Agentic DataOps Copilot
 
+**目前版本 / Current release: v0.5.0**
+
+> **📘 Interactive Project Guide / 專案互動式說明文件**  
+> [Open the single-file HTML guide](docs/agentic-dataops-copilot-guide.html) — 面試官速讀、版本演進、Multi-Agent、Hybrid RAG、MCP/Integrations、Policy/RBAC/Human Approval、Audit、CI/Release 與完整使用教學集中於單一自包含 HTML。
+
 > **繁體中文**：Governed AI Agent for DataOps Incident Analysis and Remediation。主角是 Incident Triage、Evidence Correlation、Root Cause Analysis、Recommendation、Policy 與 Human Approval。
 >
 > **English**: A governed AI agent for DataOps incident analysis and remediation, focused on triage, evidence correlation, root-cause analysis, recommendations, deterministic policy, and human-approved actions.
@@ -22,9 +27,7 @@ Portfolio responsibility boundary:
 
 > The built-in RAG and MCP adapters in this repository are retained for self-contained demo/regression testing. For the portfolio reference architecture, **Data Platform MCP Server is the preferred external tool layer**.
 
-## Current Version
-
-**v0.5.0**
+## v0.5 Overview
 
 v0.5 把 v0.4 的 read-only DataOps evidence layer 升級為 governed action platform。Agent 可以提出 action plan，但 deterministic Policy Engine、RBAC、separation of duties、human approval、audit trail 與 explicit executor allow-list 仍然具有最終控制權。
 
@@ -267,6 +270,7 @@ v0.5 green baseline:
 
 ## Documentation
 
+- [Interactive Project Guide](docs/agentic-dataops-copilot-guide.html)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Governance & Approval](docs/GOVERNANCE.md)
 - [RAG Architecture](docs/RAG_ARCHITECTURE.md)
