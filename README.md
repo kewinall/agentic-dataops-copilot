@@ -3,7 +3,7 @@
 **目前版本 / Current release: v0.5.0**
 
 > **📘 Interactive Project Guide / 專案互動式說明文件**  
-> [Open the single-file HTML guide](docs/agentic-dataops-copilot-guide.html) — 面試官速讀、版本演進、Multi-Agent、Hybrid RAG、MCP/Integrations、Policy/RBAC/Human Approval、Audit、CI/Release 與完整使用教學集中於單一自包含 HTML。
+> [Open Live Project Guide](https://kewinall.github.io/agentic-dataops-copilot/) · [Repository HTML](docs/agentic-dataops-copilot-guide.html) — 面試官速讀、版本演進、Multi-Agent、Hybrid RAG、MCP/Integrations、Policy/RBAC/Human Approval、Audit、CI/Release 與完整使用教學集中於單一自包含 HTML。
 
 > **繁體中文**：Governed AI Agent for DataOps Incident Analysis and Remediation。主角是 Incident Triage、Evidence Correlation、Root Cause Analysis、Recommendation、Policy 與 Human Approval。
 >
