@@ -32,6 +32,36 @@
 <div class="g">Interview</div><a href="#interview">13 面試導覽</a><a href="#qa">14 常見問答</a><a href="#roadmap">15 v0.6 Roadmap</a>
 </nav>
 <main>
+<section id="engineering-decisions">
+  <div class="section-head">
+    <div><span class="tag">P1 · Engineering Judgment</span><h2>Engineering Decisions & Production Evidence</h2></div>
+    <p>這個專案的重點不是讓 AI「更自主」，而是證明 AI reasoning 與 production authority 可以被工程化地分離。</p>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px">
+    <div class="card"><h3>Problem</h3><p>LLM 的 hallucination、prompt injection 或錯誤 RCA，不能直接變成 production mutation。</p></div>
+    <div class="card"><h3>Key Decision</h3><p>Reasoning → Deterministic Policy → Separate Approval → Explicit Executor → Audit。任何一步不成立，就不能形成 production change。</p></div>
+    <div class="card"><h3>Safety Boundary</h3><p>Mutation executor registry 預設為空；AI 可以提出 action plan，但不會因模型輸出自行取得 authority。</p></div>
+  </div>
+  <div class="table-wrap" style="margin-top:16px"><table>
+    <thead><tr><th>Decision</th><th>Benefit</th><th>Trade-off</th></tr></thead>
+    <tbody>
+      <tr><td>Reasoning / execution separation</td><td>模型錯誤不會直接變成 production change</td><td>不是 full-auto remediation，處置速度較慢</td></tr>
+      <tr><td>Deterministic Policy Engine</td><td>Risk、RBAC、allow-list 不依賴 probabilistic model</td><td>Policy 需要持續維護與 change control</td></tr>
+      <tr><td>Human Approval + SoD</td><td>高風險 action 有獨立責任人與 audit trail</td><td>增加 approval latency 與 operational friction</td></tr>
+    </tbody>
+  </table></div>
+  <div class="table-wrap" style="margin-top:16px"><table>
+    <thead><tr><th>Failure Scenario</th><th>Engineering Response</th><th>Evidence</th></tr></thead>
+    <tbody>
+      <tr><td>Hallucinated / malformed action plan</td><td>仍需 deterministic policy 與 approval；不能直接執行</td><td><a href="https://github.com/kewinall/agentic-dataops-copilot/blob/main/tests/test_governance.py">test_governance.py</a></td></tr>
+      <tr><td>Approver reject / timeout</td><td>Action 不進 execution，pending/rejected 狀態保留</td><td><a href="https://github.com/kewinall/agentic-dataops-copilot/blob/main/src/agentic_dataops_copilot/governance/policy.py">policy.py</a></td></tr>
+      <tr><td>Execution / audit failure</td><td>Outcome 必須形成 audit event，不把 partial failure 當成功</td><td><a href="https://github.com/kewinall/agentic-dataops-copilot/blob/main/src/agentic_dataops_copilot/governance/audit.py">audit.py</a></td></tr>
+      <tr><td>Evidence source unavailable</td><td>降低 RCA confidence，恢復 evidence 後重新 triage；human 保留最終判斷</td><td><a href="https://github.com/kewinall/agentic-dataops-copilot/blob/main/tests/test_integrations.py">test_integrations.py</a></td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout" style="margin-top:16px"><strong>Interview signal：</strong>真正的 Agentic DataOps 不是「讓 LLM 執行 kubectl」，而是把 reasoning、authority、approval、executor 與 accountability 分層。</div>
+</section>
+
 <section class="sec searchable" id="position"><div class="kicker">01 · Positioning</div><h2>作品集定位：Reasoning & Operations / AI 推理與 DataOps 維運</h2><p class="lead">此 Repository 專注於 incident reasoning、evidence correlation、root-cause analysis、recommendation、policy、approval 與 controlled action。它不是 Knowledge AI Platform、不是 canonical MCP tool server，也不是 model gateway。</p><div class="grid3"><div class="card"><div class="icon">R</div><h4>Reasoning</h4><p>從 incident signal、runbook 與 runtime evidence 推理可能根因與處置順序。</p></div><div class="card"><div class="icon">E</div><h4>Evidence</h4><p>RAG citation + runtime integration Evidence，讓輸出能追溯來源。</p></div><div class="card"><div class="icon">G</div><h4>Governance</h4><p>Policy、Approval、SoD、Audit 把 AI recommendation 與 production action 分離。</p></div></div><h3>Portfolio Boundary</h3><table><thead><tr><th>Repository</th><th>Primary Role</th></tr></thead><tbody><tr><td>enterprise-rag-platform</td><td>Knowledge AI Platform：ingestion / retrieval / citation / evaluation</td></tr><tr><td><b>agentic-dataops-copilot</b></td><td><b>Reasoning & Operations：incident analysis / governed remediation</b></td></tr><tr><td>data-platform-mcp-server</td><td>Tool / Integration Layer：canonical enterprise MCP server</td></tr><tr><td>multi-llm-ai-gateway</td><td>Model Control Plane：routing / resilience / policy / cost governance</td></tr></tbody></table></section>
 
 <section class="sec searchable" id="evolution"><div class="kicker">02 · Evolution</div><h2>v0.1 → v0.5：逐層增加能力</h2><div class="timeline"><div class="t"><div class="ver">v0.1</div><div><b>Deterministic Agent + Tools</b><br><span>FastAPI、Incident Triage、SQL Safety、Runbook Search、Docker、pytest、Ruff、CI。</span></div></div><div class="t"><div class="ver">v0.2</div><div><b>LLM Provider + Tool Calling</b><br><span>OpenAI-compatible / Ollama、structured tool calling、secret redaction、deterministic fallback。</span></div></div><div class="t"><div class="ver">v0.3</div><div><b>Hybrid RAG + Citations</b><br><span>Markdown ingestion、chunking、lexical + vector retrieval、evaluation CI gate。</span></div></div><div class="t"><div class="ver">v0.4</div><div><b>MCP + Read-only DataOps Integrations</b><br><span>Kubernetes、Airflow、GitLab、Database adapters；刻意不提供 mutation。</span></div></div><div class="t"><div class="ver">v0.5</div><div><b>Governed Multi-Agent Actions</b><br><span>Multi-Agent、Policy、RBAC、Human Approval、Separation of Duties、Audit、Dry-run、Web UI。</span></div></div></div><div class="call" style="margin-top:12px"><b>面試主線：</b>v0.4 先把 evidence layer 做成 read-only；v0.5 等 governance 到位後才建立 controlled mutation architecture。</div></section>
