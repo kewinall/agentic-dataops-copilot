@@ -1,318 +1,170 @@
 # Agentic DataOps Copilot
 
-**目前版本 / Current release: v0.5.0**
+**Current release: v0.5.0**
 
-> **📘 Interactive Project Guide / 專案互動式說明文件**  
-> [Open Live Project Guide](https://kewinall.github.io/agentic-dataops-copilot/) · [Repository HTML](docs/agentic-dataops-copilot-guide.html) — 面試官速讀、版本演進、Multi-Agent、Hybrid RAG、MCP/Integrations、Policy/RBAC/Human Approval、Audit、CI/Release 與完整使用教學集中於單一自包含 HTML。
+> **Interactive architecture & project overview**  
+> [Live GitHub Pages](https://kewinall.github.io/agentic-dataops-copilot/) · [Repository HTML](docs/agentic-dataops-copilot-guide.html)
 
-> **繁體中文**：Governed AI Agent for DataOps Incident Analysis and Remediation。主角是 Incident Triage、Evidence Correlation、Root Cause Analysis、Recommendation、Policy 與 Human Approval。
->
-> **English**: A governed AI agent for DataOps incident analysis and remediation, focused on triage, evidence correlation, root-cause analysis, recommendations, deterministic policy, and human-approved actions.
+Governed AI agent for **DataOps incident analysis and remediation**. The project focuses on evidence collection, root-cause reasoning, deterministic policy, human approval, controlled execution, and auditable outcomes.
 
 [![CI](https://github.com/kewinall/agentic-dataops-copilot/actions/workflows/ci.yml/badge.svg)](https://github.com/kewinall/agentic-dataops-copilot/actions/workflows/ci.yml)
 
-## Portfolio Role / 作品集角色
+## Engineering Scope
 
-**Primary role: Reasoning & Operations / AI 推理與 DataOps 維運**
+This repository owns the **Reasoning & Operations** layer of the portfolio:
 
-此 Repository 主要回答：**AI Agent 如何針對 Data Platform / ETL / Infrastructure Incident 蒐集證據、推理根因並提出受治理的處置建議？**  
-This repository primarily answers: **How can an AI agent collect operational evidence, reason about DataOps incidents, and propose governed remediation?**
+- incident triage and evidence correlation
+- root-cause analysis and recommendations
+- multi-agent orchestration
+- deterministic policy and RBAC
+- human approval and separation of duties
+- explicit mutation executor boundary
+- tamper-evident audit trail
 
-Portfolio responsibility boundary:
-
-- **This repository:** incident reasoning, evidence correlation, root-cause analysis, recommendation, policy, approval, controlled action.
-- [Enterprise RAG Platform](https://github.com/kewinall/enterprise-rag-platform): enterprise knowledge ingestion, retrieval, citations, and evaluation.
-- [Data Platform MCP Server](https://github.com/kewinall/data-platform-mcp-server): canonical MCP tool server for PostgreSQL, Vertica, Airflow, logs, metadata, and lineage.
-- [Multi-LLM AI Gateway](https://github.com/kewinall/multi-llm-ai-gateway): model routing, resilience, policy, and cost governance.
-
-> The built-in RAG and MCP adapters in this repository are retained for self-contained demo/regression testing. For the portfolio reference architecture, **Data Platform MCP Server is the preferred external tool layer**.
-
-## Engineering Decisions & Production Evidence
-
-### Problem
-
-DataOps Copilot 最大的風險不是「LLM 回答錯」，而是 **LLM 的推理結果是否會直接取得 production mutation authority**。企業環境需要把 evidence gathering、reasoning、policy、approval、execution 與 audit 分成不同責任，避免 hallucination、prompt injection 或權限誤配直接變成 production change。
-
-### Key Engineering Decisions & Trade-offs
-
-| Decision | Why / Benefit | Trade-off |
-|---|---|---|
-| **Reasoning 與 execution authority 分離** | Agent 可以分析與提出 action plan，但不能因模型輸出而直接取得 production write authority | Automation 不會是完全 autonomous，處置速度比 full-auto remediation 慢 |
-| **Deterministic Policy Engine 位於 LLM 之後** | 將 risk、RBAC、allow-list 等安全條件從 probabilistic model 移到 deterministic gate | Policy rules 需要維護，過度保守可能增加人工處理 |
-| **Human Approval + Separation of Duties** | 高風險 action 必須由獨立 approver 核准，避免 self-approval | 增加 operational friction 與 approval latency |
-| **Mutation executor registry 預設為空** | Demo / reasoning 可以完整執行，但未明確註冊 executor 時無法產生真實 mutation | 真正上線需要額外開發、測試與治理每一個 executor |
-| **SHA-256 hash-chained audit** | Policy、approval、dry-run、execution outcome 可形成 tamper-evident sequence | Audit store 仍需 durable persistence / retention / access control 才能成為正式稽核系統 |
-
-### Production Failure & Recovery
-
-| Scenario | Engineering Behavior / Detection | Recovery Strategy |
-|---|---|---|
-| LLM 產生 hallucinated / malformed action plan | Action plan 仍需通過 deterministic policy、risk gate 與 approval，不應直接執行 | 回到 evidence/reasoning 階段重新產生或由 operator 修正 |
-| Policy deny 或 policy service 無法作出允許決策 | 沒有 allow decision 就不進 execution path | 修復 policy/configuration；不要以 bypass policy 作為復原方式 |
-| Approver timeout / reject | Action 保持 pending/rejected，不形成 production mutation | 重新審核或關閉 action；保留 audit history |
-| Explicit executor 執行失敗 | Failure outcome 應被 audit chain 記錄，而不是假裝 action complete | 由 operator 根據 executor error 做 retry / rollback / manual remediation |
-| MCP / evidence source unavailable | Evidence completeness 降低，RCA confidence 應下降；human operator 仍保有最終判斷 | 恢復 evidence source 後重新 triage，不以缺少證據的模型猜測替代 |
-
-### Production Evidence
-
-| Claim | Repository Evidence |
-|---|---|
-| Policy / approval / separation-of-duties 有 regression tests | `tests/test_governance.py`, `src/agentic_dataops_copilot/governance/policy.py` |
-| Multi-Agent orchestration 有測試 | `tests/test_multi_agent.py`, `tests/test_orchestrator_v02.py` |
-| Hash-chained audit implementation | `src/agentic_dataops_copilot/governance/audit.py`, `tests/test_governance.py` |
-| RAG evidence / retrieval evaluation 有 baseline | `src/agentic_dataops_copilot/knowledge/evaluation.py`, `src/agentic_dataops_copilot/knowledge/eval/retrieval_cases.jsonl`, `tests/test_knowledge.py` |
-| MCP / integration layer 有 regression tests | `tests/test_mcp_server.py`, `tests/test_integrations.py`, `tests/test_tools.py` |
-| CI baseline | `.github/workflows/ci.yml` |
-
-### Interview Questions This Project Can Answer
-
-- 為什麼 AI 可以提出 remediation，但不能直接執行 production change？
-- Deterministic policy 為什麼要放在 LLM reasoning 之後？
-- Human approval 是否會讓 automation 失去價值？
-- Executor 預設為空的設計有什麼意義？
-- 如何證明 audit event 沒有被靜默修改？
-
-
-## v0.5 Overview
-
-v0.5 把 v0.4 的 read-only DataOps evidence layer 升級為 governed action platform。Agent 可以提出 action plan，但 deterministic Policy Engine、RBAC、separation of duties、human approval、audit trail 與 explicit executor allow-list 仍然具有最終控制權。
+It intentionally does not own the canonical enterprise knowledge platform, MCP integration platform, or model control plane.
 
 ## Architecture
 
-    User / MCP Host / Web UI
-              |
-              v
-       Multi-Agent Layer
-    triage / evidence / safety /
-    recommendation / reviewer
-              |
-       +------+------+
-       |             |
-       v             v
- Runbook Evidence   Tool / Evidence Layer
-    Citations          |
-       |               v
-       |            Evidence
-       +-------+-------+
+```text
+User / MCP Host / Web UI
+          |
+          v
+   Multi-Agent Layer
+ triage / evidence / safety /
+ recommendation / reviewer
+          |
+          v
+  Governed Action Plan
+          |
+          v
+ Deterministic Policy
+ RBAC / Risk / Allow-list
+          |
+     +----+----+
+     |         |
+    DENY   REQUIRE APPROVAL
                |
                v
-       Governed Action Plan
+        Human Approver
+       no self-approval
                |
                v
-       Deterministic Policy
-        RBAC / Risk / Allow-list
+        Explicit Executor
+     none configured by default
                |
-        +------+------+
-        |             |
-      DENY      REQUIRE APPROVAL
-                      |
-                      v
-               Human Approver
-              no self-approval
-                      |
-                      v
-               Explicit Executor
-          none configured by default
-                      |
-                      v
-               Hash-chained Audit
+               v
+       Hash-chained Audit
+```
 
-## v0.5 Highlights
+## Core Capabilities
 
-- Multi-Agent coordinator with five specialist roles.
-- Deterministic action Policy Engine.
-- Role model: viewer, operator, approver, admin.
-- Action allow-list with risk metadata.
-- Human approval gate for mutation-capable actions.
-- Separation of duties: requester cannot approve their own action.
-- Critical action default-deny rule.
-- Dry-run preview path that never invokes mutation executors.
-- Explicit ActionExecutorRegistry; empty by default.
-- Hash-chained tamper-evident Audit Log.
-- API and MCP identity propagation.
-- Built-in single-page operations Web UI.
-- v0.4 read-only MCP integrations and v0.3 RAG regression preserved.
+- five specialist agent roles: triage, evidence, safety, recommendation, reviewer
+- governed action planning lifecycle
+- deterministic action Policy Engine
+- roles: `viewer`, `operator`, `approver`, `admin`
+- mutation allow-list with risk metadata
+- human approval for mutation-capable actions
+- separation of duties
+- critical action default deny
+- safe dry-run path
+- explicit `ActionExecutorRegistry`
+- SHA-256 hash-chained audit sequence
+- API and MCP identity propagation
+- embedded Web UI for operations and audit inspection
 
-## Multi-Agent Roles
+## Key Engineering Decisions
 
-| Agent | Responsibility |
-|---|---|
-| triage | Incident signal and severity classification |
-| evidence | RAG/runbook evidence retrieval |
-| safety | Deterministic SQL/change safety |
-| recommendation | Bounded remediation recommendation |
-| reviewer | Risk review before governed action |
-
-API example:
-
-    curl -X POST http://127.0.0.1:8000/api/v1/copilot/collaborate \
-      -H "Content-Type: application/json" \
-      -d '{"message":"AKS pod ImagePullBackOff，請協助分析"}'
+| Decision | Rationale | Trade-off |
+|---|---|---|
+| Separate reasoning from execution authority | LLM output never implies production write permission | Less autonomous than full-auto remediation |
+| Deterministic policy after model reasoning | Security decisions remain testable and repeatable | Rules require maintenance |
+| Human approval + separation of duties | High-risk changes require independent review | Adds approval latency |
+| Empty executor registry by default | Demo/reasoning cannot accidentally mutate production | Real deployment must explicitly implement each executor |
+| Hash-chained audit | Policy, approval and execution outcomes are tamper-evident | Durable audit storage is still required for production |
 
 ## Governed Action Lifecycle
 
-    recommendation
-        |
-        v
-       PLAN
-        |
-        +-- viewer / unknown action --> BLOCKED
-        |
-        +-- dry-run -----------------> SAFE PREVIEW
-        |
-        +-- mutation ----------------> PENDING APPROVAL
-                                          |
-                                   separate approver
-                                          |
-                               +----------+----------+
-                               |                     |
-                            REJECTED              APPROVED
-                                                     |
-                                               operator/admin
-                                                     |
-                                        explicit executor lookup
-                                                     |
-                                  +------------------+------------------+
-                                  |                                     |
-                           not configured                           configured
-                                  |                                     |
-                            FAILS SAFELY                            EXECUTED
+```text
+recommendation
+    |
+    v
+   PLAN
+    |
+    +-- viewer / unknown action --> BLOCKED
+    |
+    +-- dry-run -----------------> SAFE PREVIEW
+    |
+    +-- mutation ----------------> PENDING APPROVAL
+                                      |
+                              separate approver
+                                      |
+                           +----------+----------+
+                           |                     |
+                        REJECTED              APPROVED
+                                                 |
+                                           operator/admin
+                                                 |
+                                      explicit executor lookup
+                                                 |
+                           +---------------------+--------------------+
+                           |                                          |
+                    not configured                               configured
+                           |                                          |
+                     FAILS SAFELY                                 EXECUTED
+```
 
-Default governed action catalog:
+Default governed action contracts:
 
-- kubernetes.restart_workload
-- airflow.retry_task
-- gitlab.retry_job
-- database.cancel_query
+- `kubernetes.restart_workload`
+- `airflow.retry_task`
+- `gitlab.retry_job`
+- `database.cancel_query`
 
-These names define the governance contract only. **No production mutation executor is registered by default.**
+No production mutation executor is registered by default.
+
+## Production Evidence
+
+| Claim | Repository Evidence |
+|---|---|
+| Policy / approval / separation-of-duties regression | `tests/test_governance.py`, `src/agentic_dataops_copilot/governance/policy.py` |
+| Multi-agent orchestration | `tests/test_multi_agent.py`, `tests/test_orchestrator_v02.py` |
+| Hash-chained audit | `src/agentic_dataops_copilot/governance/audit.py`, `tests/test_governance.py` |
+| RAG evidence baseline | `src/agentic_dataops_copilot/knowledge/evaluation.py`, `src/agentic_dataops_copilot/knowledge/eval/retrieval_cases.jsonl` |
+| MCP / integration regression | `tests/test_mcp_server.py`, `tests/test_integrations.py`, `tests/test_tools.py` |
+| CI baseline | `.github/workflows/ci.yml` |
+
+Current validation baseline includes 36 pytest tests, Ruff, Docker build validation, and the retained RAG regression suite.
 
 ## Quick Start
 
-    git clone https://github.com/kewinall/agentic-dataops-copilot.git
-    cd agentic-dataops-copilot
-    python -m venv .venv
-    source .venv/bin/activate
-    pip install -e ".[dev]"
-    uvicorn agentic_dataops_copilot.main:app --reload
+```bash
+git clone https://github.com/kewinall/agentic-dataops-copilot.git
+cd agentic-dataops-copilot
+python -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+uvicorn agentic_dataops_copilot.main:app --reload
+```
 
-Open:
+Open `http://127.0.0.1:8000/`.
 
-    http://127.0.0.1:8000/
+## MCP / Platform Integration
 
-The Web UI provides:
+Preferred portfolio integration:
 
-- identity / role selection
-- multi-agent incident analysis
-- action planning
-- approval / rejection
-- dry-run / execution request
-- action queue
-- audit-chain visualization
+```text
+Agentic DataOps Copilot
+          |
+          | MCP
+          v
+Data Platform MCP Server
+          |
+  +-------+--------+---------+
+  |       |        |         |
+Vertica Airflow  GitLab   Logs/Metadata
+```
 
-## API Identity
-
-Demo API identity is propagated through trusted-style headers:
-
-    X-Copilot-User: operator-a
-    X-Copilot-Role: operator
-
-This is intentionally a portfolio/reference implementation, **not a replacement for production authentication**. In production, place the API behind OIDC/IAP/API Gateway/auth proxy and overwrite these headers from trusted identity claims.
-
-## MCP / Tool Integration
-
-For a self-contained demo, this repository still ships an embedded MCP surface.
-
-For the preferred portfolio integration path:
-
-    Agentic DataOps Copilot
-              |
-              | MCP
-              v
-    Data Platform MCP Server
-              |
-      +-------+--------+---------+
-      |       |        |         |
-    Vertica Airflow  GitLab   Logs/Metadata
-
-See: https://github.com/kewinall/data-platform-mcp-server
-
-Embedded demo start:
-
-    dataops-mcp
-
-Server-side MCP identity:
-
-    export COPILOT_MCP_SUBJECT=automation-operator
-    export COPILOT_MCP_ROLE=operator
-
-v0.5 adds governance MCP tools:
-
-- governance_status
-- action_plan
-- action_approve
-- action_reject
-- action_execute
-
-Existing v0.4 read-only tools remain:
-
-- integration_health
-- kubernetes_read
-- airflow_read
-- gitlab_read
-- database_read
-
-## Policy Summary
-
-| Condition | Default decision |
-|---|---|
-| Viewer requests action | Deny |
-| Unknown action | Deny |
-| Non-viewer dry-run | Allow preview |
-| Mutation by operator/admin | Require approval |
-| Approver approves own request | Deny |
-| Critical-risk action | Deny |
-| Execute without approval | Deny |
-| Approved action without executor | Fail safely |
-| Approved action with explicit executor | Execute |
-
-## Audit Trail
-
-Every plan, denial, approval, rejection, dry-run, execution, and execution failure is appended to a SHA-256 hash chain.
-
-API:
-
-    curl http://127.0.0.1:8000/api/v1/audit
-
-Response includes chain_valid, allowing callers to verify that the in-memory event sequence has not been altered.
-
-## Evidence Layer & Embedded Integrations
-
-The v0.3/v0.4 RAG and integration components remain intact as a self-contained evidence layer and regression baseline. They are **not intended to replace** the dedicated Enterprise RAG Platform or Data Platform MCP Server.
-
-
-- Markdown knowledge ingestion
-- Hybrid lexical + vector retrieval
-- citations
-- retrieval evaluation
-- Kubernetes / Airflow / GitLab / Database read-only adapters
-- MCP server/client
-
-Current RAG regression baseline:
-
-    11 cases
-    Hit Rate@3 = 1.0
-    MRR = 1.0
-
-## Validation
-
-v0.5 green baseline:
-
-- 36 pytest tests
-- Ruff passed
-- 83% overall test coverage
-- RAG evaluation passed
-- Docker build passed
+The embedded MCP surface remains for self-contained demo and regression testing.
 
 ## Documentation
 
@@ -324,17 +176,9 @@ v0.5 green baseline:
 - [LLM Providers](docs/LLM_PROVIDERS.md)
 - [Roadmap](docs/ROADMAP.md)
 
-## Release History
-
-- v0.1.0 — Deterministic Agent + Tools.
-- v0.2.0 — LLM provider abstraction + tool calling.
-- v0.3.0 — Hybrid RAG + citations + retrieval evaluation.
-- v0.4.0 — MCP v2 + read-only platform integrations.
-- v0.5.0 — Multi-Agent + policy + human approval + audit + controlled action architecture + Web UI.
-
 ## Safety Boundary
 
-v0.5 introduces a **controlled mutation architecture**, not autonomous production remediation. The repository ships with an empty mutation executor registry. A real action can occur only after an operator/admin request, deterministic policy decision, separate approval, and an explicitly registered executor.
+This project demonstrates a **controlled mutation architecture**, not autonomous production remediation. A real mutation requires an authorized request, deterministic policy decision, separate approval, and an explicitly registered executor.
 
 ## License
 
